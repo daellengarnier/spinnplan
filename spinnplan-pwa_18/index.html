@@ -1066,7 +1066,12 @@ function NotifPage({profile,setProfile,showToast}){
     await sb.from('profiles').update(updates).eq('id',profile.id);
     setProfile({...profile,[field]:val});
     // Sync tag to OneSignal
-    
+    try{
+      if(window.OneSignal){
+        window.OneSignal.User.addTags({[field]:val?'true':'false'})
+          .catch(e=>console.log('OneSignal tag sync error:',e));
+      }
+    }catch(e){console.log('OneSignal error:',e);}
     showToast(val?'Aktiviert':'Deaktiviert','green');
   }
   const isAdmin=profile.is_admin;
@@ -1804,8 +1809,11 @@ function App(){
   }
 
   async function dismissNotif(id){
-    await sb.from('notifications').delete().eq('id',id);
-    setNotifs(prev=>prev.filter(n=>n.id!==id));
+    if(!profile)return;
+    const notif=notifs.find(n=>n.id===id);
+    const readBy=[...(notif?.read_by||[]),profile.id];
+    await sb.from('notifications').update({read_by:readBy}).eq('id',id);
+    setNotifs(prev=>prev.map(n=>n.id===id?{...n,read_by:readBy}:n));
   }
 
   async function addNotif(type, title, body){
@@ -1826,6 +1834,7 @@ function App(){
         if(session){
           const type=window.location.hash.includes('type=recovery')||window.location.hash.includes('type=invite');
           if(type){setIsRecovery(true);setLoading(false);return;}
+          setSession(session);
           await loadProfile(session.user.id, session.user.email);
           await loadEvents();
         }
@@ -1835,6 +1844,7 @@ function App(){
     }
     sb.auth.getSession().then(async({data:{session}})=>{
       if(session){
+        setSession(session);
         await loadProfile(session.user.id, session.user.email);
         await loadEvents();
       }
@@ -1870,14 +1880,16 @@ function App(){
       slots[key][si]=userName;
       return{...ev,slots};
     }));
-    // Try update first, then insert if not exists
-    const{error:upErr}=await sb.from('slots')
+    // Try update first, check if rows were affected, fallback to upsert
+    const{data:upData,error:upErr}=await sb.from('slots')
       .update({user_name:userName||'',user_id:userId||null,updated_at:new Date().toISOString()})
-      .eq('event_id',evId).eq('slot_key',key).eq('slot_index',si);
-    if(upErr){
-      // Fallback: insert
+      .eq('event_id',evId).eq('slot_key',key).eq('slot_index',si)
+      .select();
+    if(upErr||!upData||upData.length===0){
+      // Fallback: upsert (handles both RLS-blocked updates and missing rows)
       const{error:inErr}=await sb.from('slots')
-        .insert({event_id:evId,slot_key:key,slot_index:si,user_name:userName||'',user_id:userId||null});
+        .upsert({event_id:evId,slot_key:key,slot_index:si,user_name:userName||'',user_id:userId||null,updated_at:new Date().toISOString()},
+          {onConflict:'event_id,slot_key,slot_index'});
       if(inErr){showToast('Fehler beim Speichern','red');console.error(inErr);await loadEvents();}
     }
   }

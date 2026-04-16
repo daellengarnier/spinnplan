@@ -13,6 +13,8 @@ create table public.profiles (
   is_admin boolean default false,
   notif_new_event boolean default false,
   notif_reminder boolean default false,
+  notif_48h_reminder boolean default false,
+  notif_absence_alert boolean default false,
   created_at timestamptz default now()
 );
 alter table public.profiles enable row level security;
@@ -31,6 +33,7 @@ create table public.events (
   num_blocks int not null default 2,
   enabled_roles jsonb not null default '{}',
   role_counts jsonb not null default '{}',
+  role_blocks jsonb not null default '{}',
   fixed_roles jsonb not null default '{}',
   created_by uuid references public.profiles(id),
   created_at timestamptz default now()
@@ -61,8 +64,9 @@ create table public.slots (
 alter table public.slots enable row level security;
 create policy "Anyone logged in can read slots" on public.slots for select using (auth.role() = 'authenticated');
 create policy "Anyone logged in can upsert slots" on public.slots for insert with check (auth.role() = 'authenticated');
-create policy "Users can update their own slot or admins can update any" on public.slots for update using (
+create policy "Users can update their own slot or empty slots or admins can update any" on public.slots for update using (
   auth.uid() = user_id or
+  user_id is null or
   exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
 );
 create policy "Users can delete their own slot or admins can delete any" on public.slots for delete using (
@@ -87,6 +91,22 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
+-- ── NOTIFICATIONS ──
+create table public.notifications (
+  id uuid default uuid_generate_v4() primary key,
+  type text not null,
+  title text not null,
+  body text,
+  read_by uuid[] default '{}',
+  created_at timestamptz default now()
+);
+alter table public.notifications enable row level security;
+create policy "Anyone logged in can read notifications" on public.notifications for select using (auth.role() = 'authenticated');
+create policy "Only admins can insert notifications" on public.notifications for insert with check (
+  exists (select 1 from public.profiles where id = auth.uid() and is_admin = true)
+);
+create policy "Anyone logged in can update notifications" on public.notifications for update using (auth.role() = 'authenticated');
+
 -- ── Enable Realtime ──
 alter publication supabase_realtime add table public.events;
 alter publication supabase_realtime add table public.slots;
@@ -95,3 +115,18 @@ alter publication supabase_realtime add table public.slots;
 -- After registering your account, run this with your email:
 -- update public.profiles set is_admin = true
 -- where id = (select id from auth.users where email = 'admin@spinnerei.ch');
+
+-- ══════════════════════════════════════════════
+-- MIGRATION: Run these on existing installations
+-- ══════════════════════════════════════════════
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS notif_48h_reminder boolean default false;
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS notif_absence_alert boolean default false;
+-- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS role_blocks jsonb not null default '{}';
+--
+-- -- Fix slots RLS: allow authenticated users to claim empty slots
+-- DROP POLICY IF EXISTS "Users can update their own slot or admins can update any" ON public.slots;
+-- CREATE POLICY "Users can update their own slot or empty slots or admins can update any" ON public.slots FOR UPDATE USING (
+--   auth.uid() = user_id OR
+--   user_id IS NULL OR
+--   EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
+-- );
