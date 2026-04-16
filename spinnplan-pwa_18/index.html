@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spinnplan">
+<meta name="theme-color" content="#000000">
+<meta name="description" content="Spinnplan – Schichtplanung der Kulturspinnerei Bern">
+<title>Spinnplan</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Barlow+Condensed:wght@400;700;800;900&family=Barlow:wght@400;500;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{max-width:100vw;overflow-x:hidden;}body{font-family:'Barlow',sans-serif;background:#0a0a0a;color:#f0f0f0;min-height:100vh;}
+:root{
+  --bg:#0a0a0a;--surface:#141414;--surface2:#1e1e1e;
+  --border:#2a2a2a;--border2:#383838;--text:#f0f0f0;--muted:#666;--dim:#999;
+  --green:#6fcf7a;--green-bg:#1a2e1c;--green-border:#2d5a32;
+  --blue:#7a9fe8;--blue-bg:#1a2040;--blue-border:#2d4080;
+  --red:#e63329;--admin:#4a7fbf;--gold:#c9a84c;
+  --mono:'Share Tech Mono',monospace;--cond:'VT323',monospace;
+}
+input,button,select,textarea{font-family:'VT323',monospace;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:#111;}
+::-webkit-scrollbar-thumb{background:#333;}
+
+/* AUTH */
+.auth-wrap{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;background:#000;}
+.auth-box{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--border2);padding:36px;}
+.auth-eyebrow{font-family:var(--mono);font-size:0.54rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.auth-title{font-family:var(--cond);font-size:1.8rem;font-weight:800;text-transform:uppercase;margin-bottom:24px;}
+.auth-tabs{display:flex;margin-bottom:24px;border:1px solid var(--border2);}
+.auth-tab{flex:1;font-family:var(--mono);font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;padding:10px;background:transparent;color:var(--muted);border:none;cursor:pointer;transition:all .15s;}
+.auth-tab.active{background:var(--text);color:#000;}
+.field{margin-bottom:14px;}
+.field label{font-family:var(--mono);font-size:0.52rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px;}
+.field input{width:100%;font-size:0.92rem;padding:10px 12px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;transition:border-color .15s;}
+.field input:focus{border-color:var(--text);}
+.btn-full{width:100%;font-family:var(--mono);font-size:0.62rem;letter-spacing:0.12em;text-transform:uppercase;padding:12px;border:none;cursor:pointer;transition:all .15s;margin-top:4px;}
+.btn-full.primary{background:var(--text);color:#000;}
+.btn-full.primary:hover{background:#ddd;}
+.btn-full:disabled{opacity:0.5;cursor:not-allowed;}
+.auth-err{font-family:var(--mono);font-size:0.85rem;color:var(--red);margin-top:10px;text-align:center;line-height:1.5;}
+.auth-ok{font-family:var(--mono);font-size:0.85rem;color:var(--green);margin-top:10px;text-align:center;line-height:1.5;}
+
+/* LOADING */
+.loading-screen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;gap:16px;}
+.loading-spinner{width:32px;height:32px;border:2px solid var(--border2);border-top-color:var(--text);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-family:var(--mono);font-size:0.88rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);}
+
+/* HEADER */
+.header{height:calc(76px + env(safe-area-inset-top));background:#000;border-bottom:none;display:flex;align-items:center;justify-content:space-between;padding:env(safe-area-inset-top) 20px 0;position:sticky;top:0;z-index:100;width:100%;box-sizing:border-box;}
+.header-left{display:flex;align-items:center;gap:16px;}
+.h-div{display:none;}
+.h-sub{font-family:var(--mono);font-size:0.82rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);}
+.header-right{display:flex;align-items:center;gap:10px;}
+.h-user{display:flex;align-items:center;gap:10px;}
+.h-name{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.08em;color:var(--dim);}
+.h-badge{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.1em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--admin);color:var(--admin);}
+.h-btn{font-family:var(--mono);font-size:0.82rem;letter-spacing:0.1em;text-transform:uppercase;padding:6px 12px;border:1px solid var(--border2);background:transparent;color:var(--dim);cursor:pointer;transition:all .15s;}
+.h-btn:hover{border-color:var(--text);color:var(--text);}
+
+/* NAV */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);display:flex;gap:0;overflow-x:auto;width:100%;box-sizing:border-box;margin-top:18px;}
+.nav::-webkit-scrollbar{height:0;}
+.nav-tab{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;padding:11px 20px;background:transparent;color:var(--muted);border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+.nav-tab.active{color:var(--text);border-bottom-color:var(--text);}
+.nav-tab:hover:not(.active){color:var(--dim);}
+.nav-badge{display:inline-block;font-size:0.5rem;background:var(--red);color:#fff;border-radius:99px;padding:1px 5px;margin-left:5px;vertical-align:middle;}
+
+/* MAIN */
+.main{max-width:1080px;margin:0 auto;padding:32px 20px 80px;}
+.page-top{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid var(--border);}
+.page-eyebrow{font-family:var(--mono);font-size:0.54rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.page-title{font-family:var(--cond);font-size:2rem;font-weight:900;text-transform:uppercase;line-height:1;}
+
+/* BUTTONS */
+.btn{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;padding:8px 16px;border:1px solid var(--border2);background:transparent;color:var(--dim);cursor:pointer;transition:all .15s;}
+.btn:hover{border-color:var(--text);color:var(--text);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.white{border-color:var(--text);color:var(--text);}
+.btn.white:hover{background:var(--text);color:#000;}
+.btn.red{border-color:var(--red);color:var(--red);}
+.btn.red:hover{background:var(--red);color:#fff;}
+.btn.green{border-color:var(--green-border);color:var(--green);}
+.btn.green:hover{background:var(--green-bg);}
+.btn.sm{padding:5px 10px;font-size:0.54rem;}
+
+/* REALTIME INDICATOR */
+.rt-dot{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* EVENTS GRID */
+.events-grid{display:grid;gap:2px;}
+.event-card{background:var(--surface);border:1px solid var(--border);animation:fadeUp .2s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+.ev-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;cursor:pointer;user-select:none;transition:background .15s;border-bottom:1px solid transparent;}
+.ev-header:hover{background:var(--surface2);}
+.ev-header.open{background:#000;border-bottom-color:var(--border);}
+.ev-left{display:flex;align-items:center;gap:14px;flex:1;min-width:0;}
+.ev-name-wrap{display:flex;flex-direction:column;gap:6px;min-width:0;flex:1;}
+.ev-progress-row{display:flex;align-items:center;gap:8px;}
+.ev-date-box{display:flex;flex-direction:column;align-items:center;min-width:52px;padding:6px 8px;border:1px solid var(--border2);text-align:center;flex-shrink:0;}
+.ev-day{font-family:var(--cond);font-size:2.2rem;font-weight:800;line-height:1;}
+.ev-mon{font-family:var(--mono);font-size:0.82rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-top:2px;}
+.ev-name{font-family:var(--cond);font-size:1.5rem;font-weight:800;text-transform:uppercase;letter-spacing:0.03em;overflow:hidden;white-space:normal;word-break:break-word;}
+.ev-right{display:none;}
+.ev-fill-pill{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.06em;padding:3px 8px;border:1px solid var(--border2);color:var(--muted);}
+.ev-fill-pill.warn{border-color:#7a4a20;color:#c9844c;}
+.ev-fill-pill.ok{border-color:var(--green-border);color:var(--green);}
+.ev-prog{width:60px;height:2px;background:var(--border);flex-shrink:0;}
+.ev-prog-fill{height:100%;background:var(--text);transition:width .4s;}
+.ev-chevron{font-size:0.56rem;color:var(--muted);transition:transform .25s;flex-shrink:0;}
+.ev-header.open .ev-chevron{transform:rotate(180deg);}
+.ev-body{display:none;flex-direction:column;gap:22px;padding:20px;background:#0d0d0d;}
+.ev-body.open{display:flex;}
+.sec-label{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+
+/* RESPONSIBILITIES */
+.resp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:7px;}
+.resp-item{display:flex;flex-direction:column;gap:3px;}
+.resp-lbl{font-family:var(--mono);font-size:0.48rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);}
+.resp-val{font-size:0.82rem;font-weight:500;padding:6px 9px;background:var(--surface2);border:1px solid var(--border);min-height:30px;display:flex;align-items:center;}
+.resp-val.empty{color:var(--muted);font-style:italic;font-size:0.72rem;}
+.resp-input{font-size:0.82rem;padding:5px 9px;background:var(--surface2);border:1px solid var(--admin);color:var(--text);width:100%;outline:none;min-height:30px;}
+
+/* SHIFTS TABLE */
+.shifts-table-wrap{overflow-x:auto;display:block;}
+.shifts-tbl{width:100%;border-collapse:collapse;min-width:420px;}
+.shifts-tbl th{font-family:var(--mono);font-size:0.54rem;letter-spacing:0.08em;text-transform:uppercase;padding:8px 12px;background:#000;color:var(--dim);text-align:center;border:1px solid var(--border);white-space:nowrap;}
+.shifts-tbl th.rc{text-align:left;min-width:100px;}
+.shifts-tbl td{border:1px solid var(--border);padding:0;vertical-align:middle;}
+.shifts-tbl td.rn{font-family:var(--mono);font-size:0.54rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);padding:8px 12px;background:var(--surface);white-space:nowrap;}
+
+/* SHIFTS MOBILE */
+.shifts-mobile{display:none;flex-direction:column;gap:10px;}
+.shift-block-card{background:var(--surface2);border:1px solid var(--border);}
+.shift-block-header{font-family:var(--mono);font-size:0.88rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);padding:8px 12px;border-bottom:1px solid var(--border);background:#000;}
+.shift-row-mobile{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);}
+.shift-row-mobile:last-child{border-bottom:none;}
+.shift-role-lbl{font-family:var(--mono);font-size:0.54rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);min-width:80px;}
+.shift-slot-mob{flex:1;display:flex;align-items:center;justify-content:flex-end;}
+
+/* SLOT */
+.slot{position:relative;min-height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .12s;padding:6px;}
+.slot.empty{background:#0d0d0d;}
+.slot.empty:hover{background:#1c1c1c;}
+.slot.filled{background:var(--green-bg);border-left:2px solid var(--green-border);}
+.slot.mine{background:var(--blue-bg);border-left:2px solid var(--blue-border);}
+.slot.unavail{background:var(--surface);cursor:default;}
+.slot.saving{opacity:.5;pointer-events:none;}
+.slot-name{font-size:0.8rem;font-weight:500;color:var(--green);text-align:center;}
+.slot-name.is-mine{color:var(--blue);}
+.slot-hint{font-family:var(--mono);font-size:0.48rem;letter-spacing:0.08em;color:var(--border2);text-transform:uppercase;}
+.slot.empty:hover .slot-hint{color:var(--muted);}
+.slot-dash{color:var(--border2);}
+.slot-x{position:absolute;top:2px;right:2px;font-size:0.46rem;color:var(--green);opacity:0;background:rgba(0,0,0,.5);border:none;width:12px;height:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:opacity .15s;}
+.slot:hover .slot-x{opacity:.8;}
+.slot-mob{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;font-size:0.8rem;font-weight:500;cursor:pointer;border:1px solid var(--border2);min-width:110px;justify-content:center;}
+.slot-mob.empty{color:var(--muted);background:var(--surface);}
+.slot-mob.empty:hover{border-color:var(--text);color:var(--text);}
+.slot-mob.filled{background:var(--green-bg);border-color:var(--green-border);color:var(--green);}
+.slot-mob.mine{background:var(--blue-bg);border-color:var(--blue-border);color:var(--blue);}
+.slot-mob.unavail{color:var(--border2);background:var(--surface);cursor:default;border-color:var(--border);}
+
+/* ADMIN PANEL */
+.admin-panel{background:var(--surface);border:1px solid var(--border);padding:28px;}
+.panel-title{font-family:var(--cond);font-size:1.3rem;font-weight:800;text-transform:uppercase;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;}
+.f-group{display:flex;flex-direction:column;gap:5px;}
+.f-label{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);}
+.f-input{font-size:0.88rem;padding:8px 11px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;transition:border-color .15s;}
+.f-input:focus{border-color:var(--text);}
+.sec-div{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--muted);margin:20px 0 12px;padding-bottom:7px;border-bottom:1px solid var(--border);}
+.dur-pills{display:flex;gap:5px;flex-wrap:wrap;}
+.dur-pill{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.08em;text-transform:uppercase;padding:6px 14px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;}
+.dur-pill:hover{border-color:var(--dim);color:var(--dim);}
+.dur-pill.active{border-color:var(--text);color:var(--text);background:rgba(255,255,255,.04);}
+.tpl-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+.tpl-pill{font-family:var(--mono);font-size:0.82rem;letter-spacing:0.06em;padding:6px 14px;border:1px solid var(--border2);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px;}
+.tpl-pill:hover{border-color:var(--gold);color:var(--gold);}
+.roles-check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;}
+@keyframes spin-slow{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+.logo-spin{animation:spin-slow 20s linear infinite;border-radius:50%;border:2px solid #000;padding:3px;}
+.h-menu-btn{background:transparent;border:1px solid var(--border2);color:#fff;padding:6px 11px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;}
+.h-notif-btn{position:relative;background:transparent;border:1px solid var(--border2);color:#fff;padding:6px 11px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;margin-right:6px;}
+.h-notif-badge{position:absolute;top:-6px;right:-6px;background:#ff4444;color:#fff;font-family:var(--mono);font-size:0.45rem;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;}
+.h-menu-icon{font-size:1.1rem;line-height:1;}
+.h-dropdown{position:fixed;top:0;left:0;right:0;bottom:0;z-index:200;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);}
+.h-dropdown-inner{position:absolute;top:calc(76px + env(safe-area-inset-top));right:12px;background:#111;border:1px solid var(--border2);min-width:200px;padding:8px 0;}
+.h-dropdown-name{font-family:var(--mono);font-size:0.88rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--fg);padding:10px 18px 4px;}
+.h-dropdown-role{font-family:var(--mono);font-size:0.48rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);padding:0 18px 10px;}
+.h-dropdown-divider{height:1px;background:var(--border);margin:4px 0;}
+.h-dropdown-item{display:block;width:100%;text-align:left;background:transparent;border:none;color:var(--dim);font-family:var(--mono);font-size:0.85rem;letter-spacing:0.08em;text-transform:uppercase;padding:11px 18px;cursor:pointer;transition:all .15s;}
+.h-dropdown-item:hover{background:var(--surface2);color:var(--fg);}
+.h-dropdown-item.red{color:var(--red);}
+.h-dropdown-item.red:hover{background:rgba(255,68,68,0.08);}
+.role-check-item{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .15s;user-select:none;min-height:44px;}
+.role-check-item:hover{border-color:var(--border2);}
+.role-check-item.checked{border-color:var(--text);background:rgba(255,255,255,.03);}
+.role-check-box{width:13px;height:13px;border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;font-size:0.48rem;flex-shrink:0;transition:all .15s;}
+.role-check-item.checked .role-check-box{border-color:var(--text);color:var(--text);}
+.role-check-name{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.06em;text-transform:uppercase;color:var(--dim);}
+.role-check-item.checked .role-check-name{color:var(--text);}
+.role-count-wrap{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0;}
+.role-count-btn{width:18px;height:18px;border:1px solid var(--border2);background:transparent;color:var(--dim);cursor:pointer;font-size:0.75rem;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;transition:all .15s;}
+.role-count-btn:hover{border-color:var(--text);color:var(--text);}
+.role-count-num{font-family:var(--mono);font-size:0.62rem;color:var(--text);min-width:12px;text-align:center;}
+.shift-preview{background:var(--surface2);border:1px solid var(--border);padding:14px;margin-top:4px;}
+.preview-label{font-family:var(--mono);font-size:0.48rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.preview-blocks{display:flex;gap:5px;flex-wrap:wrap;}
+.preview-block{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.05em;color:var(--dim);padding:4px 10px;border:1px solid var(--border2);}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+.ev-admin-actions{display:flex;gap:6px;padding:6px 0;justify-content:flex-end;}
+
+/* MY SHIFTS */
+.my-shifts-list{display:flex;flex-direction:column;gap:10px;}
+.my-shift-card{background:var(--surface);border:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.my-shift-group{background:var(--surface);border:1px solid var(--border);overflow:hidden;}
+.my-shift-group-header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap;}
+.my-shift-group-date{font-family:var(--mono);font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);flex-shrink:0;}
+.my-shift-group-name{font-family:var(--cond);font-size:1.2rem;font-weight:700;text-transform:uppercase;color:var(--fg);}
+.my-shift-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;}
+.my-shift-row:last-child{border-bottom:none;}
+.my-shift-left{display:flex;flex-direction:column;gap:4px;}
+.my-shift-event{font-family:var(--cond);font-size:1.1rem;font-weight:700;text-transform:uppercase;}
+.my-shift-detail{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.my-shift-role{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--green);}
+.my-shift-time{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.06em;color:var(--muted);}
+.my-shift-date{font-family:var(--mono);font-size:0.54rem;letter-spacing:0.06em;color:var(--dim);}
+
+/* NOTIFICATIONS */
+.notif-box{background:var(--surface);border:1px solid var(--border);padding:20px;margin-bottom:14px;}
+.notif-title{font-family:var(--cond);font-size:1rem;font-weight:700;text-transform:uppercase;margin-bottom:5px;}
+.notif-desc{font-size:0.8rem;color:var(--dim);margin-bottom:16px;line-height:1.5;}
+.notif-section-label{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px;}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border);}
+.toggle-row:last-child{border-bottom:none;}
+.toggle-info{display:flex;flex-direction:column;gap:2px;}
+.toggle-name{font-size:0.85rem;font-weight:500;}
+.toggle-sub{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.07em;color:var(--muted);}
+.toggle-switch{position:relative;width:34px;height:18px;cursor:pointer;flex-shrink:0;}
+.toggle-switch input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-track{position:absolute;inset:0;background:var(--border2);transition:background .2s;}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:12px;height:12px;background:var(--muted);transition:all .2s;}
+.toggle-switch input:checked+.toggle-track{background:var(--green-border);}
+.toggle-switch input:checked~.toggle-thumb{left:19px;background:var(--green);}
+
+/* MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:200;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:16px;}
+.overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border2);padding:28px;width:340px;max-width:100%;animation:popIn .18s ease;}
+@keyframes popIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+.modal-eye{font-family:var(--mono);font-size:0.52rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);margin-bottom:5px;}
+.modal-h{font-family:var(--cond);font-size:1.4rem;font-weight:800;text-transform:uppercase;margin-bottom:20px;}
+.modal-field{margin-bottom:14px;}
+.modal-field label{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px;}
+.modal-field input{width:100%;font-size:0.92rem;padding:10px 12px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);outline:none;transition:border-color .15s;}
+.modal-field input:focus{border-color:var(--text);}
+.modal-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:20px;left:20px;max-width:360px;margin:0 auto;background:var(--surface);border:1px solid var(--border2);padding:12px 16px;font-family:var(--mono);font-size:0.88rem;letter-spacing:0.07em;z-index:999;animation:toastIn .2s ease;display:flex;align-items:center;gap:8px;}
+@media(min-width:480px){.toast{left:auto;margin:0;}}
+.toast.green{border-color:var(--green-border);color:var(--green);}
+.toast.red{border-color:var(--red);color:var(--red);}
+.toast.blue{border-color:var(--blue-border);color:var(--blue);}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:60px 30px;color:var(--muted);border:1px dashed var(--border);}
+.empty-state .big{font-family:var(--cond);font-size:1.5rem;font-weight:700;text-transform:uppercase;color:var(--text);margin-bottom:7px;}
+.empty-state p{font-size:0.82rem;line-height:1.6;}
+
+/* PWA BANNER */
+.pwa-banner{position:fixed;bottom:0;left:0;right:0;background:#111;border-top:1px solid var(--border2);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:300;animation:slideUp .3s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.pwa-banner-left{display:flex;align-items:center;gap:12px;}
+.pwa-banner-icon{width:40px;height:40px;background:#000;border:1px solid var(--border2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;}
+.pwa-banner-title{font-family:var(--cond);font-size:0.9rem;font-weight:700;text-transform:uppercase;}
+.pwa-banner-sub{font-family:var(--mono);font-size:0.5rem;letter-spacing:0.1em;color:var(--muted);}
+.pwa-banner-actions{display:flex;gap:8px;flex-shrink:0;}
+.ios-hint{position:fixed;bottom:0;left:0;right:0;background:#111;border-top:1px solid var(--border2);padding:16px 20px;z-index:300;animation:slideUp .3s ease;}
+.ios-hint-title{font-family:var(--cond);font-size:0.9rem;font-weight:700;text-transform:uppercase;margin-bottom:6px;}
+.ios-hint-steps{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.06em;color:var(--muted);line-height:2;}
+.ios-hint-close{float:right;font-family:var(--mono);font-size:0.82rem;color:var(--dim);cursor:pointer;border:1px solid var(--border2);padding:4px 10px;background:transparent;}
+
+@supports(padding:max(0px)){
+  .header{padding-left:max(24px,env(safe-area-inset-left));padding-right:max(24px,env(safe-area-inset-right));}
+  .main{padding-bottom:max(80px,calc(env(safe-area-inset-bottom)+60px));}
+}
+@media(max-width:640px){
+  .header{padding:env(safe-area-inset-top) 14px 0;height:calc(76px + env(safe-area-inset-top));}
+  .h-badge{display:none;}
+  .h-sub{display:none;}
+  .h-div{display:none;}
+  .h-title{display:none;}
+  .h-logo{height:22px;}
+  .h-user{font-size:0.5rem;gap:6px;display:flex;} .h-name{display:none;}
+  .h-btn{padding:5px 9px;font-size:0.48rem;letter-spacing:0.06em;}
+  .main{padding:16px 12px 80px;}
+  .form-grid,.form-grid-3{grid-template-columns:1fr;}
+  .ev-header{padding:12px 14px;}
+  .ev-body{padding:16px 12px;}
+  .page-title{font-size:1.5rem;}
+  .admin-panel{padding:18px 14px;}
+  .resp-grid{grid-template-columns:1fr 1fr;}
+  .shifts-table-wrap{display:none!important;}
+  .shifts-mobile{display:flex!important;}
+  .my-shift-card{flex-direction:column;align-items:flex-start;}
+  .nav-tab{padding:14px 18px;font-size:1.1rem;letter-spacing:0.04em;}
+  .nav-badge{font-size:0.38rem;padding:1px 4px;}
+}
+</style>
+
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "ba00c132-62a5-4f4a-b462-4d9f0ec6ceb0",
+      notifyButton: { enable: false },
+      allowLocalhostAsSecureOrigin: false,
+      serviceWorkerParam: { scope: "/" },
+      serviceWorkerPath: "OneSignalSDKWorker.js",
+      promptOptions: {
+        slidedown: {
+          prompts: [{
+            type: "push",
+            autoPrompt: true,
+            text: {
+              actionMessage: "Erhalte Benachrichtigungen über neue Anlässe und Schicht-Reminders.",
+              acceptButton: "Erlauben",
+              cancelButton: "Später"
+            },
+            delay: { pageViews: 1, timeDelay: 3 }
+          }]
+        }
+      }
+    });
+  });
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef,useMemo,useCallback}=React;
+
+// ── SUPABASE ──
+const SUPA_URL='https://biyeggzutwajuueexcxl.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpeWVnZ3p1dHdhanV1ZWV4Y3hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNTA0NTAsImV4cCI6MjA4ODkyNjQ1MH0.KLmelyTy7z6043NykBBnB5lZggMrrIZ2El1e_lnogA8';
+const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+// ── CONSTANTS ──
+const FIXED_ROLES=['Abendverantwortung (AV)','Barverantwortung (BV)','Licht','Ton','Kochen','Filmen'];
+const ALL_SHIFT_TYPES=[
+  {key:'Einlass',label:'Einlass',defaultCount:2},
+  {key:'Bar',label:'Bar',defaultCount:2},
+  {key:'Sicherheit',label:'Sicherheit',defaultCount:2},
+  {key:'Garderobe',label:'Garderobe',defaultCount:1},
+  {key:'Springer',label:'Springer*in',defaultCount:1},
+];
+const DUR_OPTIONS=[{label:'1h',hours:1},{label:'1.5h',hours:1.5},{label:'2h',hours:2},{label:'3h',hours:3}];
+const TEMPLATES=[
+  {label:'Konzertabend',icon:'🎸',startTime:'21:00',endTime:'00:30',durHours:1.5,enabledRoles:{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
+  {label:'Clubnacht',icon:'🎧',startTime:'22:00',endTime:'04:00',durHours:2,enabledRoles:{Einlass:true,Bar:true,Sicherheit:true,Garderobe:false,Springer:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
+  {label:'Kleinanlasse',icon:'🎤',startTime:'19:00',endTime:'22:00',durHours:1.5,enabledRoles:{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:false},roleCounts:{Einlass:1,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
+];
+
+// ── HELPERS ──
+function toMins(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
+function fromMins(m){const t=((m%1440)+1440)%1440;return`${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;}
+function computeBlocks(startTime,durHours,numBlocks){
+  let mins=toMins(startTime);const durMins=durHours*60;const blocks=[];
+  for(let i=0;i<numBlocks;i++){const s=fromMins(mins);mins+=durMins;blocks.push(`${s} – ${fromMins(mins)}`);}
+  return blocks;
+}
+function calcNumBlocks(start,end,dur){
+  let s=toMins(start),e=toMins(end);if(e<=s)e+=1440;
+  return Math.max(1,Math.round((e-s)/(dur*60)));
+}
+function buildSlots(ev){
+  const slots={};
+  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
+  ALL_SHIFT_TYPES.forEach(st=>{
+    if(!ev.enabledRoles[st.key])return;
+    const cnt=ev.roleCounts[st.key]||st.defaultCount;
+    const nb=(ev.roleBlocks&&ev.roleBlocks[st.key])||ev.numBlocks;
+    blocks.forEach((_,bi)=>{if(bi<nb)slots[`${st.key}_${bi}`]=Array(cnt).fill('');});
+  });
+  return slots;
+}
+function countSlots(ev){
+  // Count only valid slots (respects per-role block counts)
+  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
+  let n=0;
+  ALL_SHIFT_TYPES.forEach(st=>{
+    if(!ev.enabledRoles[st.key])return;
+    const cnt=ev.roleCounts[st.key]||st.defaultCount;
+    const roleBlocks=ev.roleBlocks&&ev.roleBlocks[st.key]!=null?ev.roleBlocks[st.key]:blocks.length;
+    for(let bi=0;bi<roleBlocks;bi++){
+      const key=`${st.key}_${bi}`;
+      const arr=ev.slots[key]||[];
+      for(let si=0;si<cnt;si++) n++;
+    }
+  });
+  return n;
+}
+function countFilled(ev){
+  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
+  let n=0;
+  ALL_SHIFT_TYPES.forEach(st=>{
+    if(!ev.enabledRoles[st.key])return;
+    const cnt=ev.roleCounts[st.key]||st.defaultCount;
+    const roleBlocks=ev.roleBlocks&&ev.roleBlocks[st.key]!=null?ev.roleBlocks[st.key]:blocks.length;
+    for(let bi=0;bi<roleBlocks;bi++){
+      const key=`${st.key}_${bi}`;
+      const arr=ev.slots[key]||[];
+      for(let si=0;si<cnt;si++){if(arr[si]&&arr[si].trim()!=='')n++;}
+    }
+  });
+  return n;
+}
+function fmtDate(d){
+  if(!d)return{day:'',mon:'',full:''};
+  const dt=new Date(d+'T12:00');
+  return{day:dt.getDate(),mon:dt.toLocaleDateString('de-CH',{month:'short'}).toUpperCase().replace('.',''),full:dt.toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'})};
+}
+function findMyShifts(events,userName){
+  const shifts=[];
+  events.forEach(ev=>{
+    const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
+    ALL_SHIFT_TYPES.forEach(st=>{
+      if(!ev.enabledRoles[st.key])return;
+      const cnt=ev.roleCounts[st.key]||st.defaultCount;
+      blocks.forEach((block,bi)=>{
+        const key=`${st.key}_${bi}`;
+        (ev.slots[key]||[]).forEach((v,si)=>{
+          if(v===userName)shifts.push({evId:ev.id,evName:ev.name,date:ev.date,role:st.label,time:block,key,si});
+        });
+      });
+    });
+  });
+  return shifts.sort((a,b)=>a.date.localeCompare(b.date));
+}
+
+// ── DB HELPERS ──
+// Convert DB row → app event
+function dbToEvent(row, slots_rows){
+  const slots={};
+  (slots_rows||[]).forEach(s=>{
+    if(!slots[s.slot_key])slots[s.slot_key]=[];
+    slots[s.slot_key][s.slot_index]=s.user_name||'';
+  });
+  return{
+    id:row.id, name:row.name, date:row.date,
+    startTime:row.start_time, endTime:row.end_time||'',
+    durHours:row.dur_hours, numBlocks:row.num_blocks,
+    enabledRoles:row.enabled_roles||{},
+    roleCounts:row.role_counts||{},
+    roleBlocks:row.role_blocks||{},
+    fixedRoles:row.fixed_roles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),
+    slots,
+  };
+}
+// Convert app event → DB row
+function eventToDb(ev){
+  return{
+    id:typeof ev.id==='number'?undefined:ev.id,
+    name:ev.name, date:ev.date,
+    start_time:ev.startTime, end_time:ev.endTime,
+    dur_hours:ev.durHours, num_blocks:ev.numBlocks,
+    enabled_roles:ev.enabledRoles, role_counts:ev.roleCounts,
+    role_blocks:ev.roleBlocks||{},
+    fixed_roles:ev.fixedRoles,
+  };
+}
+
+// ── LOGO ──
+function Logo({height=28,spin=false}){
+  return<img src="icon-192.png" style={{height,width:height,objectFit:'contain'}} className={spin?'logo-spin':''} alt="Spinnerei Logo"/>;
+}
+
+// ── TOAST ──
+function Toast({msg,type,onDone}){
+  useEffect(()=>{const t=setTimeout(onDone,3200);return()=>clearTimeout(t);},[]);
+  return<div className={`toast ${type}`}>{type==='green'?'✓':type==='red'?'✕':'·'} {msg}</div>;
+}
+
+// ── TOGGLE ──
+function Toggle({checked,onChange}){
+  return(
+    <label className="toggle-switch">
+      <input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)}/>
+      <div className="toggle-track"></div>
+      <div className="toggle-thumb"></div>
+    </label>
+  );
+}
+
+// ── SLOT CELL ──
+function SlotCell({val,onSignup,onRemove,currentUser,saving}){
+  if(val===null)return<td><div className="slot unavail"><span className="slot-dash">—</span></div></td>;
+  const isMe=val&&currentUser&&val===currentUser.name;
+  if(val)return(
+    <td><div className={`slot ${isMe?'mine':'filled'}${saving?' saving':''}`}>
+      <span className={`slot-name${isMe?' is-mine':''}`}>{val}</span>
+      {(isMe||currentUser?.isAdmin)&&<button className="slot-x" onClick={e=>{e.stopPropagation();onRemove();}}>✕</button>}
+    </div></td>
+  );
+  return<td><div className={`slot empty${saving?' saving':''}`} onClick={onSignup}><span className="slot-hint">+ Eintragen</span></div></td>;
+}
+
+// ── SLOT MOBILE ──
+function SlotMob({val,onSignup,onRemove,currentUser}){
+  if(val===null)return<span className="slot-mob unavail">—</span>;
+  const isMe=val&&currentUser&&val===currentUser.name;
+  if(val)return(
+    <span className={`slot-mob ${isMe?'mine':'filled'}`} onClick={isMe||currentUser?.isAdmin?onRemove:undefined}>
+      {val} {(isMe||currentUser?.isAdmin)&&<span style={{fontSize:'0.6rem',opacity:.6}}>✕</span>}
+    </span>
+  );
+  return<span className="slot-mob empty" onClick={onSignup}>+ Eintragen</span>;
+}
+
+// ── EVENT CARD ──
+function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal}){
+  const[open,setOpen]=useState(false);
+  const[saving,setSaving]=useState(null);
+  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
+  const{day,mon}=fmtDate(ev.date);
+  const total=countSlots(ev),filled=countFilled(ev);
+  const pct=total>0?Math.round(filled/total*100):0;
+  const openSlots=total-filled;
+  const activeRoles=ALL_SHIFT_TYPES.filter(st=>ev.enabledRoles[st.key]);
+
+  async function handleSignup(key,si){
+    if(!currentUser)return;
+    setSaving(`${key}_${si}`);
+    await onSlotChange(ev.id,key,si,currentUser.name,currentUser.id);
+    setSaving(null);
+  }
+  async function handleRemove(key,si){
+    if(!window.confirm('Eintrag löschen?'))return;
+    setSaving(`${key}_${si}`);
+    await onSlotChange(ev.id,key,si,'',null);
+    setSaving(null);
+  }
+  async function updateFixedRole(role,val){
+    const newFixed={...ev.fixedRoles,[role]:val};
+    await sb.from('events').update({fixed_roles:newFixed}).eq('id',ev.id);
+  }
+
+  const pillClass=openSlots===0?'ok':openSlots<=3?'warn':'';
+  return(
+    <div className="event-card">
+      <div className={`ev-header${open?' open':''}`} onClick={()=>setOpen(!open)}>
+        <div className="ev-left">
+          <div className="ev-date-box"><div className="ev-day">{day}</div><div className="ev-mon">{mon}</div></div>
+          <div className="ev-name-wrap">
+            <span className="ev-name">{ev.name}</span>
+            <div className="ev-progress-row">
+              <span className={`ev-fill-pill ${pillClass}`}>{openSlots===0?'✓ Voll':`${openSlots} offen`}</span>
+              <div className="ev-prog"><div className="ev-prog-fill" style={{width:pct+'%'}}></div></div>
+            </div>
+          </div>
+        </div>
+        <span className="ev-chevron">▼</span>
+      </div>
+      {open&&<div className="ev-body open">
+        <div>
+          <div className="sec-label">Verantwortlichkeiten</div>
+          <div className="resp-grid">
+            {FIXED_ROLES.map(role=>{
+              const val=ev.fixedRoles[role]||'';
+              if(isAdmin)return(
+                <div key={role} className="resp-item">
+                  <span className="resp-lbl">{role}</span>
+                  <input className="resp-input" defaultValue={val} placeholder="—" onBlur={e=>updateFixedRole(role,e.target.value)}/>
+                </div>
+              );
+              return(
+                <div key={role} className="resp-item">
+                  <span className="resp-lbl">{role}</span>
+                  <div className={`resp-val${val?'':' empty'}`}>{val||'Offen'}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <div className="sec-label">
+            <span className="rt-dot"></span>Schichten (Echtzeit)
+          </div>
+          <div className="shifts-table-wrap">
+            <table className="shifts-tbl">
+              <thead><tr>
+                <th className="rc">Schicht</th>
+                {blocks.map((b,i)=><th key={i}>{b}</th>)}
+              </tr></thead>
+              <tbody>
+                {activeRoles.map(st=>{
+                  const cnt=ev.roleCounts[st.key]||st.defaultCount;
+                  const nb=(ev.roleBlocks&&ev.roleBlocks[st.key])||ev.numBlocks;
+                  return Array.from({length:cnt},(_,si)=>(
+                    <tr key={`${st.key}-${si}`}>
+                      <td className="rn">{st.label}</td>
+                      {blocks.map((_,bi)=>{
+                        if(bi>=nb)return<td key={bi}><div className="slot unavail"><span className="slot-dash">—</span></div></td>;
+                        const key=`${st.key}_${bi}`;
+                        const arr=ev.slots[key]||[];
+                        const isSaving=saving===`${key}_${si}`;
+                        return<SlotCell key={bi} val={arr[si]??null} currentUser={currentUser} saving={isSaving}
+                          onSignup={()=>openModal(ev.id,key,si,st.label,blocks[bi])}
+                          onRemove={()=>handleRemove(key,si)}/>;
+                      })}
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="shifts-mobile">
+            {blocks.map((block,bi)=>(
+              <div key={bi} className="shift-block-card">
+                <div className="shift-block-header">{block}</div>
+                {activeRoles.map(st=>{
+                  const cnt=ev.roleCounts[st.key]||st.defaultCount;
+                  const nb=(ev.roleBlocks&&ev.roleBlocks[st.key])||ev.numBlocks;
+                  if(bi>=nb)return null;
+                  return Array.from({length:cnt},(_,si)=>{
+                    const key=`${st.key}_${bi}`;
+                    const arr=ev.slots[key]||[];
+                    return(
+                      <div key={`${st.key}-${si}`} className="shift-row-mobile">
+                        <span className="shift-role-lbl">{st.label}</span>
+                        <div className="shift-slot-mob">
+                          <SlotMob val={arr[si]??null} currentUser={currentUser}
+                            onSignup={()=>openModal(ev.id,key,si,st.label,block)}
+                            onRemove={()=>handleRemove(key,si)}/>
+                        </div>
+                      </div>
+                    );
+                  });
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+// ── ADMIN CREATE EVENT ──
+function AdminCreateEvent({onSave,onCancel,existing}){
+  const[name,setName]=useState(existing?.name||'');
+  const[date,setDate]=useState(existing?.date||'');
+  const[startTime,setStartTimeS]=useState(existing?.startTime||'21:00');
+  const[endTime,setEndTimeS]=useState(existing?.endTime||'00:30');
+  const[durHours,setDurHoursS]=useState(existing?.durHours||1.5);
+  const[numBlocks,setNumBlocks]=useState(existing?.numBlocks||2);
+  const[enabledRoles,setEnabledRoles]=useState(existing?.enabledRoles||{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:true});
+  const[roleCounts,setRoleCounts]=useState(existing?.roleCounts||{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1});
+  // Per-role block counts (0 = use global numBlocks)
+  const[roleBlocks,setRoleBlocks]=useState(existing?.roleBlocks||{});
+  const[saving,setSaving]=useState(false);
+  const[err,setErr]=useState('');
+
+  function recalc(s,e,d){setNumBlocks(calcNumBlocks(s,e,d));}
+  function handleStart(v){setStartTimeS(v);if(endTime)recalc(v,endTime,durHours);}
+  function handleEnd(v){setEndTimeS(v);if(startTime)recalc(startTime,v,durHours);}
+  function handleDur(v){setDurHoursS(v);if(startTime&&endTime)recalc(startTime,endTime,v);}
+  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);recalc(t.startTime,t.endTime,t.durHours);}
+  function toggleRole(k){setEnabledRoles(r=>({...r,[k]:!r[k]}));}
+  function changeCount(k,d){setRoleCounts(r=>({...r,[k]:Math.max(1,Math.min(4,(r[k]||1)+d))}));}
+  function changeRoleBlocks(k,d){setRoleBlocks(r=>({...r,[k]:Math.max(0,Math.min(numBlocks,(r[k]||numBlocks)+d))}));}
+
+  const blocks=computeBlocks(startTime,durHours,numBlocks);
+  const computedEnd=blocks.length>0?blocks[blocks.length-1].split(' – ')[1]:'';
+
+  async function doSave(){
+    if(!name.trim()||!date){setErr('Name und Datum sind erforderlich.');return;}
+    setSaving(true);setErr('');
+    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,
+      fixedRoles:existing?.fixedRoles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),slots:{}};
+    await onSave(ev);
+    setSaving(false);
+  }
+
+  return(
+    <div className="admin-panel">
+      <div className="panel-title">{existing?'Anlasse bearbeiten':'Neuer Anlass'}</div>
+      <div className="sec-div" style={{marginTop:0}}>Vorlage</div>
+      <div className="tpl-pills">
+        {TEMPLATES.map(t=>(
+          <button key={t.label} className="tpl-pill" onClick={()=>applyTpl(t)}>
+            <span>{t.icon}</span>{t.label}
+            <span style={{color:'var(--muted)',fontSize:'0.5rem'}}>{t.startTime}–{t.endTime}</span>
+          </button>
+        ))}
+      </div>
+      <div className="sec-div">Grundinfos</div>
+      <div className="form-grid">
+        <div className="f-group"><label className="f-label">Name</label><input className="f-input" value={name} onChange={e=>setName(e.target.value)} placeholder="z.B. Dagobert"/></div>
+        <div className="f-group"><label className="f-label">Datum</label><input className="f-input" type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
+      </div>
+      <div className="sec-div">Zeiten</div>
+      <div className="form-grid">
+        <div className="f-group"><label className="f-label">Startzeit</label><input className="f-input" type="time" value={startTime} onChange={e=>handleStart(e.target.value)}/></div>
+        <div className="f-group"><label className="f-label">Endzeit</label><input className="f-input" type="time" value={endTime} onChange={e=>handleEnd(e.target.value)}/></div>
+      </div>
+      <div className="form-grid" style={{marginBottom:8}}>
+        <div className="f-group">
+          <label className="f-label">Schichtdauer</label>
+          <div className="dur-pills">{DUR_OPTIONS.map(d=><button key={d.hours} className={`dur-pill${durHours===d.hours?' active':''}`} onClick={()=>handleDur(d.hours)}>{d.label}</button>)}</div>
+        </div>
+        <div className="f-group">
+          <label className="f-label">Berechnete Endzeit</label>
+          <div style={{fontFamily:'var(--mono)',fontSize:'0.72rem',padding:'8px 11px',border:'1px solid var(--border)',color:computedEnd?'var(--green)':'var(--muted)',background:'var(--surface2)',letterSpacing:'0.08em'}}>{computedEnd||'—'}</div>
+        </div>
+      </div>
+      <div className="shift-preview">
+        <div className="preview-label">Vorschau</div>
+        <div className="preview-blocks">{blocks.map((b,i)=><span key={i} className="preview-block">{b}</span>)}</div>
+      </div>
+      <div className="sec-div">Schicht-Rollen</div>
+      <div className="roles-check-grid">
+        {ALL_SHIFT_TYPES.map(st=>(
+          <div key={st.key} className={`role-check-item${enabledRoles[st.key]?' checked':''}`} onClick={()=>toggleRole(st.key)}>
+            <div className="role-check-box">{enabledRoles[st.key]&&'✓'}</div>
+            <span className="role-check-name">{st.label}</span>
+            {enabledRoles[st.key]&&(
+              <div style={{display:'flex',flexDirection:'column',gap:2,marginLeft:'auto',flexShrink:0}} onClick={e=>e.stopPropagation()}>
+                <div className="role-count-wrap">
+                  <button className="role-count-btn" onClick={()=>changeCount(st.key,-1)}>−</button>
+                  <span className="role-count-num">{roleCounts[st.key]||st.defaultCount}</span>
+                  <button className="role-count-btn" onClick={()=>changeCount(st.key,+1)}>+</button>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Blöcke</span>
+                  <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,-1)}>−</button>
+                  <span className="role-count-num" style={{fontSize:'0.58rem',color:(roleBlocks[st.key]&&roleBlocks[st.key]<numBlocks)?'var(--gold)':'var(--dim)'}}>{roleBlocks[st.key]||numBlocks}</span>
+                  <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,+1)}>+</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {err&&<div style={{fontFamily:'var(--mono)',fontSize:'0.56rem',color:'var(--red)',marginTop:10}}>{err}</div>}
+      <div className="form-actions">
+        {onCancel&&<button className="btn" onClick={onCancel}>Abbrechen</button>}
+        <button className="btn white" onClick={doSave} disabled={saving}>{saving?'Speichern…':existing?'Speichern':'Erstellen'}</button>
+      </div>
+    </div>
+  );
+}
+
+// ── EXPORT PDF ──
+function exportPDF(ev){
+  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
+  const activeRoles=ALL_SHIFT_TYPES.filter(st=>ev.enabledRoles[st.key]);
+  const{full}=fmtDate(ev.date);
+  let rows='';
+  activeRoles.forEach(st=>{
+    const cnt=ev.roleCounts[st.key]||st.defaultCount;
+    for(let si=0;si<cnt;si++){
+      rows+=`<tr><td style="font-family:monospace;font-size:11px;color:#666;padding:7px 12px;border:1px solid #ddd;white-space:nowrap;background:#f9f9f9">${st.label}</td>
+      ${blocks.map((_,bi)=>{const val=(ev.slots[`${st.key}_${bi}`]||[])[si]??null;
+        return`<td style="padding:7px 12px;border:1px solid #ddd;text-align:center;font-size:13px;${val===null?'color:#ccc;background:#f5f5f5':val?'color:#2d7a35;font-weight:600':'color:#bbb'}">${val===null?'—':val||'·'}</td>`;}).join('')}</tr>`;
+    }
+  });
+  const respRows=FIXED_ROLES.map(r=>`<tr><td style="font-family:monospace;font-size:11px;color:#666;padding:5px 12px;width:180px">${r}</td><td style="padding:5px 12px;font-size:13px;font-weight:${ev.fixedRoles[r]?600:400};color:${ev.fixedRoles[r]?'#111':'#bbb'}">${ev.fixedRoles[r]||'—'}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Spinnplan – ${ev.name}</title>
+  <style>body{font-family:'Helvetica Neue',Arial,sans-serif;color:#111;padding:32px;max-width:900px;margin:0 auto;}
+  h1{font-size:24px;font-weight:800;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;}
+  .sub{font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#999;margin-bottom:24px;font-family:monospace;}
+  h2{font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#999;margin:20px 0 8px;border-bottom:1px solid #eee;padding-bottom:6px;}
+  table{width:100%;border-collapse:collapse;}th{font-family:monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 12px;background:#111;color:#eee;text-align:center;}th.rc{text-align:left;}</style></head>
+  <body><h1>${ev.name}</h1><div class="sub">Spinnplan · ${full} · ${ev.startTime} – ${ev.endTime}</div>
+  <h2>Verantwortlichkeiten</h2><table><tbody>${respRows}</tbody></table>
+  <h2>Schichten</h2><table><thead><tr><th class="rc">Schicht</th>${blocks.map(b=>`<th>${b}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+  <div style="margin-top:32px;font-family:monospace;font-size:10px;color:#ccc;text-align:right;">Spinnplan · ${new Date().toLocaleDateString('de-CH')}</div></body></html>`;
+  const win=window.open('','_blank');
+  win.document.write(html+'<div style="position:fixed;top:16px;right:16px;"><button onclick="window.close()" style="font-family:monospace;font-size:11px;padding:8px 16px;background:#111;color:#fff;border:1px solid #333;cursor:pointer;letter-spacing:0.1em;text-transform:uppercase;">✕ Schliessen</button></div>');
+  win.document.close();setTimeout(()=>win.print(),400);
+}
+
+// ── ADMIN PANEL ──
+function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToast,loadEvents,openModal,addNotif}){
+  const[tab,setTab]=useState('events');
+  const[editing,setEditing]=useState(null);
+
+  async function saveEvent(ev){
+    const isNew=!ev.id||typeof ev.id==='number';
+    const dbRow=eventToDb(ev);
+    let savedId=ev.id;
+    if(isNew){
+      delete dbRow.id;
+      const{data,error}=await sb.from('events').insert(dbRow).select().single();
+      if(error){showToast('Fehler: '+error.message,'red');return;}
+      savedId=data.id;
+    } else {
+      const{error}=await sb.from('events').update(dbRow).eq('id',ev.id);
+      if(error){showToast('Fehler: '+error.message,'red');return;}
+    }
+    // Build default slots in DB
+    const slots=buildSlots({...ev,id:savedId});
+    // Only upsert empty slots (don't overwrite existing)
+    const existing=await sb.from('slots').select('slot_key,slot_index').eq('event_id',savedId);
+    const existingSet=new Set((existing.data||[]).map(s=>`${s.slot_key}_${s.slot_index}`));
+    const toInsert=[];
+    Object.entries(slots).forEach(([key,arr])=>{
+      arr.forEach((_,si)=>{if(!existingSet.has(`${key}_${si}`))toInsert.push({event_id:savedId,slot_key:key,slot_index:si,user_name:'',user_id:null});});
+    });
+    if(toInsert.length>0)await sb.from('slots').insert(toInsert);
+    await loadEvents();
+    setEditing(null);setTab('events');
+    showToast(isNew?'Anlasse erstellt!':'Anlasse gespeichert','green');
+    // Push notification for new event
+    if(isNew){
+      const d=new Date(ev.date+'T12:00:00').toLocaleDateString('de-CH',{weekday:'long',day:'numeric',month:'long'});
+      // Save to notifications table
+      await addNotif('new_event', `Neuer Anlass: ${ev.name}`, `${d} · ${ev.startTime||ev.start_time||''}–${ev.endTime||ev.end_time||''}`);
+      // Push via Edge Function (avoids CORS)
+      try{
+        await fetch('https://biyeggzutwajuueexcxl.supabase.co/functions/v1/notify-new-event',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':`Bearer ${(await sb.auth.getSession()).data.session?.access_token}`},
+          body:JSON.stringify({name:ev.name,date:ev.date,start_time:ev.startTime||ev.start_time,end_time:ev.endTime||ev.end_time})
+        });
+      }catch(e){console.log('Push error:',e);}
+
+    }
+  }
+
+  async function deleteEvent(id){
+    if(!window.confirm('Anlasse wirklich löschen?'))return;
+    await sb.from('events').delete().eq('id',id);
+    await loadEvents();
+    showToast('Gelöscht','red');
+  }
+
+  if(editing)return(
+    <><div className="nav"><button className="nav-tab active" onClick={()=>setEditing(null)}>← Zurück</button></div>
+    <div className="main"><AdminCreateEvent existing={editing} onSave={saveEvent} onCancel={()=>setEditing(null)}/></div></>
+  );
+
+  return(
+    <>
+      <div className="nav">
+        <button className={`nav-tab${tab==='events'?' active':''}`} onClick={()=>setTab('events')}>Anlässe</button>
+        <button className={`nav-tab${tab==='create'?' active':''}`} onClick={()=>setTab('create')}>+ Neu</button>
+        <button className={`nav-tab${tab==='mine'?' active':''}`} onClick={()=>setTab('mine')}>Meine Schichten</button>
+      </div>
+      <div className="main">
+        {tab==='create'&&<AdminCreateEvent onSave={saveEvent}/>}
+        {tab==='events'&&(
+          <>
+            <div className="page-top">
+              <div><div className="page-eyebrow">Admin</div><h2 className="page-title">Anlässe</h2></div>
+            </div>
+            {events.length===0&&<div className="empty-state"><div className="big">Keine Anlässe</div><p>Erstelle den ersten Anlasse oben.</p></div>}
+            <div className="events-grid">
+              {events.map(ev=>(
+                <div key={ev.id}>
+                  <EventCard ev={ev} currentUser={profile} isAdmin={true} onSlotChange={onSlotChange} openModal={openModal}/>
+                  <div className="ev-admin-actions">
+                    <button className="btn sm green" onClick={()=>exportPDF(ev)}>↓ PDF</button>
+                    <button className="btn sm" onClick={()=>setEditing(ev)}>✎ Bearbeiten</button>
+                    <button className="btn sm red" onClick={()=>deleteEvent(ev.id)}>✕ Löschen</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+        {tab==='mine'&&<MyShiftsView events={events} profile={profile} onSlotChange={onSlotChange} showToast={showToast}/>}
+      </div>
+    </>
+  );
+}
+
+// ── MY SHIFTS VIEW (shared between user and admin) ──
+function makeICS(shift){
+  // Parse date + time range from shift
+  const [y,m,d]=shift.date.split('-').map(Number);
+  const [startStr,endStr]=shift.time.split(' – ');
+  function toUTC(dateY,dateM,dateD,timeStr){
+    const[h,min]=timeStr.split(':').map(Number);
+    // Handle overnight (end < start means next day)
+    const dt=new Date(dateY,dateM-1,dateD,h,min,0);
+    return dt.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  }
+  const [sh,sm]=startStr.split(':').map(Number);
+  const [eh,em]=endStr.split(':').map(Number);
+  const startDt=new Date(y,m-1,d,sh,sm);
+  const endDt=new Date(y,m-1,d,eh,em);
+  if(eh<sh||(eh===sh&&em<sm))endDt.setDate(endDt.getDate()+1); // overnight
+  function fmt(dt){return dt.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');}
+  const uid=`spinnplan-${shift.evId}-${shift.key}-${shift.si}@kulturspinnerei.ch`;
+  const ics=[
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Spinnplan//Kulturspinnerei//DE',
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTART:${fmt(startDt)}`,
+    `DTEND:${fmt(endDt)}`,
+    `SUMMARY:${shift.role} – ${shift.evName}`,
+    `DESCRIPTION:Schicht: ${shift.role}\nAnlass: ${shift.evName}\nZeit: ${shift.time}`,
+    'LOCATION:Kulturspinnerei Bern',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+  const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`Spinnplan-${shift.evName.replace(/\s+/g,'-')}.ics`;
+  document.body.appendChild(a);a.click();
+  document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+function MyShiftsView({events,profile,onSlotChange,showToast}){
+  const myShifts=useMemo(()=>findMyShifts(events,profile.name),[events,profile.name]);
+  async function removeMyShift(evId,key,si){
+    if(!window.confirm('Schicht abmelden?'))return;
+    await onSlotChange(evId,key,si,'',null);
+    showToast('Schicht abgemeldet','red');
+  }
+  function exportAllICS(){
+    if(myShifts.length===0)return;
+    // Build one ICS with all shifts
+    const events_ics=myShifts.map(s=>{
+      const[y,m,d]=s.date.split('-').map(Number);
+      const[startStr,endStr]=s.time.split(' – ');
+      const[sh,sm]=startStr.split(':').map(Number);
+      const[eh,em]=endStr.split(':').map(Number);
+      const startDt=new Date(y,m-1,d,sh,sm);
+      const endDt=new Date(y,m-1,d,eh,em);
+      if(eh<sh||(eh===sh&&em<sm))endDt.setDate(endDt.getDate()+1);
+      function fmt(dt){return dt.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');}
+      return[
+        'BEGIN:VEVENT',
+        `UID:spinnplan-${s.evId}-${s.key}-${s.si}@kulturspinnerei.ch`,
+        `DTSTART:${fmt(startDt)}`,
+        `DTEND:${fmt(endDt)}`,
+        `SUMMARY:${s.role} – ${s.evName}`,
+        `DESCRIPTION:Schicht: ${s.role}\nAnlass: ${s.evName}\nZeit: ${s.time}`,
+        'LOCATION:Kulturspinnerei Bern',
+        'END:VEVENT'
+      ].join('\r\n');
+    }).join('\r\n');
+    const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Spinnplan//Kulturspinnerei//DE',events_ics,'END:VCALENDAR'].join('\r\n');
+    const blob=new Blob([ics],{type:'text/calendar;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download='Meine-Spinnplan-Schichten.ics';
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);URL.revokeObjectURL(url);
+    showToast('Kalender exportiert','green');
+  }
+  return(
+    <>
+      <div className="page-top">
+        <div><div className="page-eyebrow">Übersicht</div><h2 className="page-title">Meine Schichten</h2></div>
+        {myShifts.length>0&&<button className="btn white" onClick={exportAllICS}>📅 Alle exportieren</button>}
+      </div>
+      {myShifts.length===0
+        ?<div className="empty-state"><div className="big">Noch keine Schichten</div><p>Trage dich bei einem Anlasse ein.</p></div>
+        :<div className="my-shifts-list">
+          {(()=>{
+            // Group shifts by evId, sort each group by block start time
+            const grouped={};
+            myShifts.forEach(s=>{
+              if(!grouped[s.evId])grouped[s.evId]={evName:s.evName,date:s.date,shifts:[]};
+              grouped[s.evId].shifts.push(s);
+            });
+            // Sort shifts within each group by start time
+            Object.values(grouped).forEach(g=>{
+              g.shifts.sort((a,b)=>{
+                const ta=a.time.split(' – ')[0]; // e.g. "21:00"
+                const tb=b.time.split(' – ')[0];
+                return ta.localeCompare(tb);
+              });
+            });
+            return Object.values(grouped).map((g,gi)=>(
+              <div key={gi} className="my-shift-group">
+                <div className="my-shift-group-header">
+                  <span className="my-shift-group-date">{fmtDate(g.date).full}</span>
+                  <span className="my-shift-group-name">{g.evName}</span>
+                  <button className="btn sm" onClick={()=>g.shifts.forEach(s=>makeICS(s))} style={{fontSize:'0.52rem',whiteSpace:'nowrap',marginLeft:'auto'}}>📅 Zum Kalender</button>
+                </div>
+                {g.shifts.map((s,si)=>(
+                  <div key={si} className="my-shift-row">
+                    <div className="my-shift-detail">
+                      <span className="my-shift-role">{s.role}</span>
+                      <span className="my-shift-time">{s.time}</span>
+                    </div>
+                    <button className="btn sm red" onClick={()=>removeMyShift(s.evId,s.key,s.si)}>Abmelden</button>
+                  </div>
+                ))}
+              </div>
+            ));
+          })()}
+        </div>
+      }
+    </>
+  );
+}
+
+// ── USER VIEW ──
+function UserView({events,profile,setProfile,onSlotChange,openModal,showToast}){
+  const[tab,setTab]=useState('events');
+  const myShifts=useMemo(()=>findMyShifts(events,profile.name),[events,profile.name]);
+
+  return(
+    <>
+      <div className="nav">
+        <button className={`nav-tab${tab==='events'?' active':''}`} onClick={()=>setTab('events')}>Anlässe</button>
+        <button className={`nav-tab${tab==='mine'?' active':''}`} onClick={()=>setTab('mine')}>
+          Meine Schichten{myShifts.length>0&&<span className="nav-badge">{myShifts.length}</span>}
+        </button>
+      </div>
+      <div className="main">
+        {tab==='events'&&(
+          <>
+            <div className="page-top"><div><div className="page-eyebrow">Spinnplan</div><h2 className="page-title">Anlässe</h2></div></div>
+            {events.length===0&&<div className="empty-state"><div className="big">Keine Anlässe</div><p>Noch keine Anlässe verfügbar.</p></div>}
+            <div className="events-grid">
+              {events.map(ev=>(
+                <EventCard key={ev.id} ev={ev} currentUser={profile} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal}/>
+              ))}
+            </div>
+          </>
+        )}
+        {tab==='mine'&&<MyShiftsView events={events} profile={profile} onSlotChange={onSlotChange} showToast={showToast}/>}
+
+      </div>
+    </>
+  );
+}
+
+
+
+// ── NOTIF PAGE (shared) ──
+function NotifPage({profile,setProfile,showToast}){
+  async function updateNotif(field,val){
+    const updates={};updates[field]=val;
+    await sb.from('profiles').update(updates).eq('id',profile.id);
+    setProfile({...profile,[field]:val});
+    // Sync tag to OneSignal
+    
+    showToast(val?'Aktiviert':'Deaktiviert','green');
+  }
+  const isAdmin=profile.is_admin;
+  return(
+    <>
+      <div className="page-top"><div><div className="page-eyebrow">Einstellungen</div><h2 className="page-title">Notifications</h2></div></div>
+      <div className="notif-box">
+        <div className="notif-title">E-Mail Benachrichtigungen</div>
+        <div className="notif-desc">Mails gehen an: <strong>{profile.email}</strong></div>
+
+        <div className="notif-section-label">Für alle</div>
+        <div className="toggle-row">
+          <div className="toggle-info"><div className="toggle-name">Neuer Anlass</div><div className="toggle-sub">Mail wenn ein neuer Anlass aufgeschaltet wird</div></div>
+          <Toggle checked={profile.notif_new_event||false} onChange={v=>updateNotif('notif_new_event',v)}/>
+        </div>
+        <div className="toggle-row">
+          <div className="toggle-info"><div className="toggle-name">Reminder 24h vor Schicht</div><div className="toggle-sub">Erinnerung am Tag vor deiner eingetragenen Schicht</div></div>
+          <Toggle checked={profile.notif_reminder||false} onChange={v=>updateNotif('notif_reminder',v)}/>
+        </div>
+
+        {isAdmin&&<>
+          <div className="notif-section-label" style={{marginTop:20}}>Nur für Admins</div>
+          <div className="toggle-row">
+            <div className="toggle-info"><div className="toggle-name">48h Reminder – offene Schichten</div><div className="toggle-sub">Mail 48h vor Anlass mit Anzahl offener Bar- und Einlassschichten</div></div>
+            <Toggle checked={profile.notif_48h_reminder||false} onChange={v=>updateNotif('notif_48h_reminder',v)}/>
+          </div>
+          <div className="toggle-row">
+            <div className="toggle-info"><div className="toggle-name">Kurzfristige Absage</div><div className="toggle-sub">Sofort-Mail wenn sich jemand innerhalb 24h vor Anlass abmeldet</div></div>
+            <Toggle checked={profile.notif_absence_alert||false} onChange={v=>updateNotif('notif_absence_alert',v)}/>
+          </div>
+        </>}
+      </div>
+    </>
+  );
+}
+
+// ── PROFILE PAGE ──
+function ProfilePage({profile,setProfile,showToast}){
+  const[name,setName]=useState(profile.name||'');
+  const[email,setEmail]=useState(profile.email||'');
+  const[pw,setPw]=useState('');
+  const[pw2,setPw2]=useState('');
+  const[saving,setSaving]=useState(false);
+
+  async function saveName(){
+    if(!name.trim()){return;}
+    setSaving(true);
+    await sb.from('profiles').update({name:name.trim()}).eq('id',profile.id);
+    setProfile({...profile,name:name.trim()});
+    showToast('Name gespeichert','green');
+    setSaving(false);
+  }
+
+  async function saveEmail(){
+    if(!email.trim())return;
+    setSaving(true);
+    const{error}=await sb.auth.updateUser({email:email.trim()});
+    if(error){showToast('Fehler: '+error.message,'red');}
+    else{setProfile({...profile,email:email.trim()});showToast('E-Mail aktualisiert – bitte bestätigen','blue');}
+    setSaving(false);
+  }
+
+  async function savePassword(){
+    if(pw.length<6){showToast('Min. 6 Zeichen','red');return;}
+    if(pw!==pw2){showToast('Passwörter stimmen nicht überein','red');return;}
+    setSaving(true);
+    const{error}=await sb.auth.updateUser({password:pw});
+    if(error){showToast('Fehler: '+error.message,'red');}
+    else{showToast('Passwort geändert','green');setPw('');setPw2('');}
+    setSaving(false);
+  }
+
+  return(
+    <div className="main">
+      <div className="page-top"><div><div className="page-eyebrow">Konto</div><h2 className="page-title">Profil</h2></div></div>
+      <div className="admin-panel" style={{maxWidth:520}}>
+        <div className="sec-div" style={{marginTop:0}}>Name</div>
+        <div className="f-group" style={{marginBottom:12}}>
+          <label className="f-label">Anzeigename</label>
+          <input className="f-input" value={name} onChange={e=>setName(e.target.value)}/>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end'}}>
+          <button className="btn white" onClick={saveName} disabled={saving}>Speichern</button>
+        </div>
+
+        <div className="sec-div">E-Mail</div>
+        <div className="f-group" style={{marginBottom:12}}>
+          <label className="f-label">E-Mail Adresse</label>
+          <input className="f-input" type="email" value={email} onChange={e=>setEmail(e.target.value)}/>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end'}}>
+          <button className="btn white" onClick={saveEmail} disabled={saving}>Speichern</button>
+        </div>
+
+        <div className="sec-div">Passwort ändern</div>
+        <div className="f-group" style={{marginBottom:8}}>
+          <label className="f-label">Neues Passwort (min. 6 Zeichen)</label>
+          <input className="f-input" type="password" value={pw} onChange={e=>setPw(e.target.value)}/>
+        </div>
+        <div className="f-group" style={{marginBottom:12}}>
+          <label className="f-label">Passwort wiederholen</label>
+          <input className="f-input" type="password" value={pw2} onChange={e=>setPw2(e.target.value)}/>
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end'}}>
+          <button className="btn white" onClick={savePassword} disabled={saving||!pw}>Passwort ändern</button>
+        </div>
+
+        <div className="sec-div" style={{marginTop:24,borderColor:'var(--red)',color:'var(--red)'}}>Konto löschen</div>
+        <div style={{fontFamily:'var(--mono)',fontSize:'0.54rem',color:'var(--muted)',marginBottom:12,lineHeight:1.6}}>
+          Dein Konto und alle deine Schicht-Einträge werden unwiderruflich gelöscht.
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end'}}>
+          <button className="btn red" onClick={async()=>{
+            if(!window.confirm('Konto wirklich löschen? Dies kann nicht rückgängig gemacht werden.'))return;
+            setSaving(true);
+            await sb.from('profiles').delete().eq('id',profile.id);
+            await sb.auth.admin?.deleteUser?.(profile.id);
+            await sb.auth.signOut();
+            window.location.reload();
+          }} disabled={saving}>Konto löschen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── NOTIFICATIONS PANEL ──
+function NotificationsPanel({notifs,profile,onClose,onDismiss}){
+  function timeAgo(ts){
+    const d=Math.floor((Date.now()-new Date(ts).getTime())/1000);
+    if(d<60)return 'Gerade eben';
+    if(d<3600)return `vor ${Math.floor(d/60)} Min.`;
+    if(d<86400)return `vor ${Math.floor(d/3600)} Std.`;
+    return `vor ${Math.floor(d/86400)} Tagen`;
+  }
+  const icons={new_event:'📅',absence:'🚨',reminder:'⏰',admin_48h:'⚠️'};
+  return(
+    <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:200}} onClick={onClose}>
+      <div style={{position:'absolute',top:'calc(70px + env(safe-area-inset-top))',right:16,width:'min(380px,calc(100vw - 32px))',background:'#141414',border:'1px solid #2a2a2a',boxShadow:'0 8px 32px rgba(0,0,0,0.6)',maxHeight:'70vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:'14px 16px',borderBottom:'1px solid #2a2a2a',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+          <span style={{fontFamily:'var(--cond)',fontSize:'1.1rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.08em'}}>Benachrichtigungen</span>
+          <button onClick={onClose} style={{background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer',fontSize:'1rem'}}>✕</button>
+        </div>
+        <div style={{overflowY:'auto',flex:1}}>
+          {(!notifs||notifs.length===0)
+            ?<div style={{padding:24,fontFamily:'var(--mono)',fontSize:'0.55rem',color:'var(--muted)',textAlign:'center'}}>Keine Benachrichtigungen</div>
+            :notifs.map((n,i)=>{
+              const unread=!n.read_by?.includes(profile?.id);
+              return(
+                <div key={i} style={{padding:'12px 16px',borderBottom:'1px solid #1a1a1a',background:unread?'#1a1a1a':'transparent',display:'flex',gap:12,alignItems:'flex-start'}}>
+                  <span style={{fontSize:'1.1rem',flexShrink:0,marginTop:2}}>{icons[n.type]||'🔔'}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontFamily:'var(--mono)',fontSize:'0.6rem',fontWeight:700,color:unread?'#fff':'var(--dim)',marginBottom:2}}>{n.title}</div>
+                    <div style={{fontFamily:'var(--mono)',fontSize:'0.52rem',color:'var(--muted)',marginBottom:4,lineHeight:1.4}}>{n.body}</div>
+                    <div style={{fontFamily:'var(--mono)',fontSize:'0.45rem',color:'#444'}}>{timeAgo(n.created_at)}</div>
+                  </div>
+                  <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
+                    {unread&&<div style={{width:6,height:6,borderRadius:'50%',background:'var(--green)'}}/>}
+                    <button onClick={()=>onDismiss(n.id)} style={{background:'transparent',border:'none',color:'#444',cursor:'pointer',fontSize:'0.7rem',padding:'2px 4px',lineHeight:1}} title="Schliessen">✕</button>
+                  </div>
+                </div>
+              );
+            })
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PDF ATTACHMENT ──
+function PdfAttachment({bucket,path,label,isAdmin}){
+  const[url,setUrl]=useState(null);
+  const[uploading,setUploading]=useState(false);
+  const fileRef=React.useRef();
+
+  useEffect(()=>{
+    const{data}=sb.storage.from(bucket).getPublicUrl(path);
+    // Check if file exists by trying to fetch headers
+    fetch(data.publicUrl,{method:'HEAD'}).then(r=>{
+      if(r.ok)setUrl(data.publicUrl);
+    }).catch(()=>{});
+  },[path]);
+
+  async function upload(e){
+    const file=e.target.files[0];
+    if(!file)return;
+    setUploading(true);
+    const{error}=await sb.storage.from(bucket).upload(path,file,{upsert:true,contentType:'application/pdf'});
+    if(!error){
+      const{data}=sb.storage.from(bucket).getPublicUrl(path);
+      setUrl(data.publicUrl+'?t='+Date.now());
+    }
+    setUploading(false);
+  }
+
+  return(
+    <div style={{marginTop:14,padding:'12px 14px',background:'#0a0a0a',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:'1rem'}}>📄</span>
+        <span style={{fontFamily:'var(--mono)',fontSize:'0.58rem',color:'var(--dim)'}}>{label}</span>
+      </div>
+      <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        {url&&<a href={url} target="_blank" rel="noreferrer" style={{fontFamily:'var(--mono)',fontSize:'0.55rem',color:'var(--gold)',letterSpacing:'0.08em',textDecoration:'none',border:'1px solid var(--gold)',padding:'5px 10px'}}>Öffnen →</a>}
+        {isAdmin&&<>
+          <input ref={fileRef} type="file" accept="application/pdf" style={{display:'none'}} onChange={upload}/>
+          <button className="btn sm" onClick={()=>fileRef.current.click()} disabled={uploading} style={{fontSize:'0.5rem'}}>
+            {uploading?'…':url?'Ersetzen':'PDF hochladen'}
+          </button>
+        </>}
+        {!url&&!isAdmin&&<span style={{fontFamily:'var(--mono)',fontSize:'0.52rem',color:'var(--muted)'}}>Noch kein PDF</span>}
+      </div>
+    </div>
+  );
+}
+
+// ── GUIDES PAGE ──
+function Accordion({title,icon,children,defaultOpen=false}){
+  const[open,setOpen]=useState(defaultOpen);
+  return(
+    <div style={{border:'1px solid var(--border)',marginBottom:8,overflow:'hidden'}}>
+      <button onClick={()=>setOpen(o=>!o)} style={{width:'100%',background:open?'#1a1a1a':'var(--surface)',border:'none',padding:'13px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',gap:10}}>
+        <span style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:'1rem'}}>{icon}</span>
+          <span style={{fontFamily:'var(--mono)',fontSize:'0.62rem',fontWeight:700,letterSpacing:'0.1em',textTransform:'uppercase',color:'#fff'}}>{title}</span>
+        </span>
+        <span style={{fontFamily:'var(--mono)',fontSize:'0.6rem',color:'var(--muted)',transition:'transform 0.2s',display:'inline-block',transform:open?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
+      </button>
+      {open&&<div style={{padding:'14px 16px',borderTop:'1px solid var(--border)',background:'#0d0d0d'}}>{children}</div>}
+    </div>
+  );
+}
+
+function GuideText({children}){
+  return <div style={{fontFamily:'var(--mono)',fontSize:'0.62rem',lineHeight:1.9,color:'var(--dim)',whiteSpace:'pre-wrap'}}>{children}</div>;
+}
+
+function GuideStep({n,children}){
+  return(
+    <div style={{display:'flex',gap:12,marginBottom:10,alignItems:'flex-start'}}>
+      <span style={{fontFamily:'var(--mono)',fontSize:'0.55rem',fontWeight:700,color:'var(--gold)',background:'#1a1500',border:'1px solid #3a2f00',borderRadius:2,padding:'2px 7px',flexShrink:0,marginTop:1}}>{n}</span>
+      <span style={{fontFamily:'var(--mono)',fontSize:'0.62rem',lineHeight:1.7,color:'var(--dim)'}}>{children}</span>
+    </div>
+  );
+}
+
+function GuideBullet({children}){
+  return(
+    <div style={{display:'flex',gap:10,marginBottom:8,alignItems:'flex-start'}}>
+      <span style={{color:'var(--gold)',flexShrink:0,marginTop:2,fontSize:'0.5rem'}}>◆</span>
+      <span style={{fontFamily:'var(--mono)',fontSize:'0.62rem',lineHeight:1.7,color:'var(--dim)'}}>{children}</span>
+    </div>
+  );
+}
+
+function GuideTable({rows}){
+  return(
+    <table style={{width:'100%',borderCollapse:'collapse',marginTop:4}}>
+      {rows.map((r,i)=>(
+        <tr key={i} style={{borderBottom:'1px solid #1a1a1a'}}>
+          <td style={{padding:'8px 10px',fontFamily:'var(--mono)',fontSize:'0.58rem',fontWeight:700,color:'var(--fg)',width:'35%'}}>{r[0]}</td>
+          <td style={{padding:'8px 10px',fontFamily:'var(--mono)',fontSize:'0.58rem',color:'var(--dim)'}}>{r[1]}</td>
+          <td style={{padding:'8px 10px',fontFamily:'var(--mono)',fontSize:'0.58rem',color:'var(--gold)',textAlign:'right',whiteSpace:'nowrap'}}>{r[2]}</td>
+        </tr>
+      ))}
+    </table>
+  );
+}
+
+function SectionLabel({children}){
+  return <div style={{fontFamily:'var(--mono)',fontSize:'0.58rem',letterSpacing:'0.15em',textTransform:'uppercase',color:'#bbb',marginBottom:10,marginTop:14,fontWeight:700}}>{children}</div>;
+}
+
+function GuidesPage({isAdmin,showToast}){
+  return(
+    <>
+      <div className="page-top"><div><div className="page-eyebrow">Info</div><h2 className="page-title">Anleitungen</h2></div></div>
+
+      {/* ── BAR ── */}
+      <div style={{fontFamily:'var(--cond)',fontSize:'1.4rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12,marginTop:4}}>🍺 Bar</div>
+
+      <Accordion title="Getränkeangebot & Lagerung" icon="🥤" defaultOpen={true}>
+        <GuideBullet>Alle Fläschli-Getränke in den <strong>Kühlschränken</strong></GuideBullet>
+        <GuideBullet>Mischgetränke, Weisswein, Prosecco, Ingwerlikör in <strong>Kühlschubladen unten</strong></GuideBullet>
+        <GuideBullet>Mehr Fläschli-Getränke in <strong>Kühlschubladen oben</strong></GuideBullet>
+        <GuideBullet>Spirituosen, Rotwein, Sirup <strong>an der Wand</strong></GuideBullet>
+        <GuideBullet>Tee, Kaffee in <strong>der Ecke</strong></GuideBullet>
+        <GuideBullet>Leitungswasser → <strong>Selbstbedienung</strong></GuideBullet>
+        <PdfAttachment bucket="guides" path="getraenkekarte.pdf" label="Getränkekarte" isAdmin={isAdmin}/>
+      </Accordion>
+
+      <Accordion title="Becher & Gläser" icon="🥂">
+        <GuideTable rows={[
+          ['Longdrinks / offene Süssgetränke / Mineralwasser','Becher',''],
+          ['Weisswein / Rotwein','Kleine Weingläser',''],
+          ['Gespritzter Wein','Grosse Weingläser',''],
+          ['Prosecco','Sektgläser',''],
+          ['Tee','Grosse Tassen',''],
+          ['Cappuccino','Mittlere Tassen',''],
+          ['Espresso','Kleine Tassen',''],
+          ['Shot','Shotgläser',''],
+          ['Leitungswasser','Plastikbecher',''],
+        ]}/>
+        <div style={{fontFamily:'var(--mono)',fontSize:'0.55rem',color:'var(--muted)',marginTop:12}}>💡 CHF 1.– Depot auf alle Fläschli, Gläser, Becher, Tassen. Kein Depot → Becher/Gläser aus Plastik oder Karton.</div>
+      </Accordion>
+
+      <Accordion title="Longdrinks mischen" icon="🍹">
+        <SectionLabel>Zubereitung</SectionLabel>
+        <GuideStep n="1">Eis in Becher füllen</GuideStep>
+        <GuideStep n="2">4 cl Alkohol beifügen</GuideStep>
+        <GuideStep n="3">Mit Softgetränk auffüllen</GuideStep>
+        <GuideStep n="4">Zitronenschnitz dazu</GuideStep>
+        <div style={{fontFamily:'var(--mono)',fontSize:'0.55rem',color:'var(--muted)',margin:'10px 0'}}>Grundsätzlich sind alle Mischungen möglich. Longdrinks mit Fläschli-Softgetränken kosten CHF 15.–. Nach Wunsch mit oder ohne Eis.</div>
+        <SectionLabel>Preisliste</SectionLabel>
+        <GuideTable rows={[
+          ['Gin Tonic','Gin / Tonic Water','14.–'],
+          ['Rum Cola','Rum / Sinalco Cola','14.–'],
+          ['Whisky Cola','Whisky / Sinalco Cola','14.–'],
+          ['Whisky Tonic','Whisky / Tonic Water','14.–'],
+          ['Wodka Lemon','Wodka / Bitter Lemon','14.–'],
+          ['Wodka Soda','Wodka / Mineralwasser / Zitronensaft (~1 cl)','14.–'],
+          ['Wodka Ginger Ale','Wodka / Ginger Ale (Fläschli)','15.–'],
+          ['Wodka Mate','Wodka / Mate (Fläschli)','15.–'],
+          ['Gespritzter – süss','1 dl Weisswein / 1 dl Goba Citro','8.–'],
+          ['Gespritzter – sauer','1 dl Weisswein / 1 dl Mineralwasser','8.–'],
+        ]}/>
+      </Accordion>
+
+      <Accordion title="Kasse & Bezahlung" icon="💳">
+        <GuideBullet>Bezahlung mit <strong>Bargeld oder Bankkarte</strong></GuideBullet>
+        <GuideBullet>Twint nur in Notfällen – Twint-Code für Hausleute vorhanden. Separate Preisliste für Hausleute (→ Hauskiosk)</GuideBullet>
+        <SectionLabel>Kartenlesegerät</SectionLabel>
+        <GuideStep n="1">Rechts auf der Seite den Knopf drücken → kurz warten</GuideStep>
+        <GuideStep n="2">Preis eingeben → «Weiter» → «Kein Trinkgeld»</GuideStep>
+        <GuideStep n="3">Person bezahlen lassen → warten bis «Transaktion erfolgreich»</GuideStep>
+        <GuideStep n="4">«Fertig» drücken</GuideStep>
+      </Accordion>
+
+      <Accordion title="Gläserspülautomat" icon="🫧">
+        <SectionLabel>Einschalten</SectionLabel>
+        <GuideStep n="1">Filter und Stöpsel rein</GuideStep>
+        <GuideStep n="2">Mittleren Knopf drücken</GuideStep>
+        <GuideStep n="3">Warten bis Lämpli «Betriebsbereit» leuchtet</GuideStep>
+        <SectionLabel>Programm starten</SectionLabel>
+        <GuideStep n="1">Knopf rechts drücken</GuideStep>
+        <GuideStep n="2">Fertig wenn Lämpli rechts nicht mehr leuchtet</GuideStep>
+        <SectionLabel>Ausschalten</SectionLabel>
+        <GuideStep n="1">Knopf links drücken «0»</GuideStep>
+        <GuideStep n="2">Stöpsel rausnehmen</GuideStep>
+        <GuideStep n="3">Knopf rechts drücken</GuideStep>
+        <GuideStep n="4">Mit Wasser Maschine ausspülen</GuideStep>
+        <GuideStep n="5">Filter entfernen</GuideStep>
+        <GuideStep n="6">Maschine geöffnet lassen</GuideStep>
+        <GuideStep n="7">Filter und Stöpsel abspülen</GuideStep>
+        <div style={{fontFamily:'var(--mono)',fontSize:'0.55rem',color:'var(--muted)',marginTop:10}}>💡 Becher besonders gut trocknen bevor sie gestapelt werden!</div>
+        <PdfAttachment bucket="guides" path="glaeserspuelautomat.pdf" label="Anleitung Gläserspülautomat" isAdmin={isAdmin}/>
+      </Accordion>
+
+      <Accordion title="Leergut & Getränkeraum" icon="♻️">
+        <GuideBullet>Fläschli und grosse Flaschen in dazugehörige <strong>Harasse</strong> einräumen</GuideBullet>
+        <GuideBullet>Volle Leergut-Harassen in <strong>Getränkeraum</strong> verräumen</GuideBullet>
+        <GuideBullet>Altglas: Outlawz Eistee, Ginger Ale, Wein- und Proseccoflaschen</GuideBullet>
+        <SectionLabel>Im Getränkeraum findest du</SectionLabel>
+        <GuideBullet>Leere Harassen</GuideBullet>
+        <GuideBullet>Getränke zum Auffüllen von Kühlschrank/-schubladen</GuideBullet>
+        <GuideBullet>Eis & Spirituosen</GuideBullet>
+      </Accordion>
+
+      <Accordion title="Hygiene" icon="🧼">
+        <GuideBullet>Oberflächen und Arbeitsutensilien <strong>sauber halten</strong></GuideBullet>
+        <GuideBullet>Hände gründlich waschen: vor Arbeitsbeginn, nach Pausen, nach dem Toilettengang, nach Berühren unsauberer Gegenstände, vor der Zubereitung von Lebensmitteln</GuideBullet>
+        <GuideBullet>Eis immer mit der <strong>Schaufel</strong> nehmen</GuideBullet>
+      </Accordion>
+
+      <Accordion title="Kontakt" icon="📞">
+        <GuideBullet>Bei Fragen, Unterstützung oder z.B. mehr Münz: <strong>078 899 94 56 (Ambar)</strong></GuideBullet>
+      </Accordion>
+
+      {/* ── EINLASS ── */}
+      <div style={{fontFamily:'var(--cond)',fontSize:'1.4rem',fontWeight:800,textTransform:'uppercase',letterSpacing:'0.1em',marginBottom:12,marginTop:24}}>🚪 Einlass</div>
+
+      <Accordion title="Einlass-Liste" icon="📋" defaultOpen={true}>
+        <GuideText>Am Eingangsmöbel liegt eine vorbereitete Liste mit verschiedenen Eintrittskategorien. Pro Eintritt beim entsprechenden Preis ein Strich machen – diese Liste dient der Abrechnung am Ende des Abends. Hinter der Liste befindet sich die Gästeliste: Namen bitte abkreuzen sobald die Person eingetreten ist.</GuideText>
+      </Accordion>
+
+      <Accordion title="Bezahlung & Tickets" icon="💰">
+        <GuideBullet>Bezahlung mit <strong>Bargeld oder Bankkarte</strong></GuideBullet>
+        <GuideBullet>Twint nur in Notfällen – Twint-Code für Hausleute vorhanden</GuideBullet>
+        <SectionLabel>Kartenlesegerät</SectionLabel>
+        <GuideStep n="1">Rechts auf der Seite den Knopf drücken → kurz warten</GuideStep>
+        <GuideStep n="2">Preis eingeben → «Weiter» → «Kein Trinkgeld»</GuideStep>
+        <GuideStep n="3">Person bezahlen lassen → warten bis «Transaktion erfolgreich»</GuideStep>
+        <GuideStep n="4">«Fertig» drücken</GuideStep>
+        <SectionLabel>Vorverkauf Petzi</SectionLabel>
+        <GuideText>Viele Anlässe haben einen Vorverkauf auf Petzi. Gäste zeigen ein Ticket mit QR-Code (Handy oder Ausdruck). Das Handy mit der Aufschrift «Peliscan» liegt bereit.</GuideText>
+        <GuideStep n="1">Peliscan App öffnen</GuideStep>
+        <GuideStep n="2">«Scan Ticket» drücken</GuideStep>
+        <GuideStep n="3">QR-Code einscannen – App gibt Rückmeldung ob Ticket gültig</GuideStep>
+        <SectionLabel>Petzi-Pass</SectionLabel>
+        <GuideText>Petzi-Mitglieder haben gratis Eintritt, müssen sich aber voranmelden. Ihre Namen stehen auf der Gästeliste mit Vermerk «Petzi-Pass». Pass vorweisen lassen, Namen abkreuzen, reinlassen.</GuideText>
+        <SectionLabel>Stempel</SectionLabel>
+        <GuideText>Such dir einen Stempel aus unserer Stempelsammlung aus – am besten für den ganzen Abend denselben behalten. Sobald jemand bezahlt hat oder gratis reinkommt → Stempel geben.</GuideText>
+      </Accordion>
+
+      <Accordion title="Sonderfälle Eintritt" icon="🎟">
+        <GuideBullet><strong>Hausbewohnende Spinnerei</strong> → gratis</GuideBullet>
+        <GuideBullet><strong>Genossenschafter:innen Via Felsenau</strong> → voller Preis, keine Ausnahmen (schriftlich kommuniziert)</GuideBullet>
+        <GuideBullet><strong>Bewohnende Haus Felsenau</strong> → kein Einlass. Das ist der Wunsch der Heimleitung. Bitte freundlich darauf hinweisen, dass sie das direkt mit der Heimleitung klären müssen.</GuideBullet>
+      </Accordion>
+
+      <Accordion title="Wichtiges während der Schicht" icon="🔊">
+        <SectionLabel>Awareness</SectionLabel>
+        <GuideText>Das Awareness-Konzept liegt am Eingang auf. Gäste bitte aktiv darauf aufmerksam machen.</GuideText>
+        <SectionLabel>Ohrstöpsel</SectionLabel>
+        <GuideText>Ohrstöpsel liegen am Eingang auf. Gäste darauf hinweisen – wer keine nehmen möchte, kann auch an der Bar welche holen. Falls Vorrat leer → jemanden vom Kollektiv kontaktieren.</GuideText>
+        <SectionLabel>Kasse</SectionLabel>
+        <GuideText>Kasse immer im Auge behalten. Das Eingangsmöbel kann zugetan werden wenn man kurz weg muss – so ist die Kasse nicht direkt zugänglich.</GuideText>
+      </Accordion>
+
+      <Accordion title="Aufgaben während der Schicht" icon="🛠">
+        <GuideBullet>Feuer instand halten</GuideBullet>
+        <GuideBullet>Vorplatz frei von Fahrzeugen halten</GuideBullet>
+        <GuideBullet>Aschenbecher leeren</GuideBullet>
+        <GuideBullet>Leergut sammeln</GuideBullet>
+      </Accordion>
+
+      <Accordion title="Notfall" icon="📞">
+        <GuideBullet>Dällen (Alain): <strong>078 888 92 65</strong></GuideBullet>
+        <GuideBullet>Oder über das <strong>Funkgerät</strong> melden bei: Münzproblem, Unklarheiten oder sonstigen Problemen</GuideBullet>
+      </Accordion>
+    </>
+  );
+}
+
+// ── GUEST VIEW ──
+function GuestView({events,guestName,onSlotChange,openModal,showToast}){
+  const currentUser={name:guestName,id:null,isAdmin:false,isGuest:true};
+  const upcoming=events.filter(e=>e.date>=new Date().toISOString().split('T')[0]);
+  return(
+    <div className="main">
+      <div className="page-eyebrow">Aushilfe</div>
+      <div className="page-title">Anlässe</div>
+      <div style={{background:'#1a1200',border:'1px solid #3a2a00',padding:'12px 16px',marginBottom:20,fontFamily:'var(--mono)',fontSize:'0.55rem',color:'#c9a84c',letterSpacing:'0.08em',lineHeight:1.6}}>
+        Du bist als Aushilfe eingeloggt. Du kannst dich in Schichten eintragen, aber nicht selbst abmelden. Bei Verhinderung bitte den Veranstaltenden kontaktieren.
+      </div>
+      {upcoming.length===0
+        ?<div className="empty-state"><div className="big">Keine Anlässe</div></div>
+        :upcoming.map(ev=><EventCard key={ev.id} ev={ev} currentUser={currentUser} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal}/>)
+      }
+    </div>
+  );
+}
+
+// ── GUEST SCREEN ──
+function GuestScreen({onGuest,onBack}){
+  const[name,setName]=useState('');
+  const[err,setErr]=useState('');
+  function proceed(){
+    if(!name.trim()){setErr('Bitte Namen eingeben.');return;}
+    onGuest(name.trim());
+  }
+  return(
+    <div className="auth-wrap">
+      <div style={{marginBottom:28}}><Logo height={40}/></div>
+      <div className="auth-box">
+        <div className="auth-eyebrow">Kulturspinnerei Bern</div>
+        <div className="auth-title">Als Aushilfe</div>
+        <div style={{fontFamily:'var(--mono)',fontSize:'0.55rem',color:'var(--muted)',letterSpacing:'0.08em',lineHeight:1.6,marginBottom:20}}>
+          Gib deinen Namen ein um dich in eine Schicht einzutragen.<br/>
+          Als Aushilfe kannst du dich nicht selbst abmelden — bei Verhinderung bitte den Veranstaltenden kontaktieren.
+        </div>
+        <div className="field"><label>Dein Name</label><input type="text" value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&proceed()} autoFocus placeholder="Vorname Nachname"/></div>
+        {err&&<div className="auth-err">{err}</div>}
+        <button className="btn-full primary" onClick={proceed}>Fortfahren</button>
+        <button onClick={onBack} style={{marginTop:12,width:'100%',background:'transparent',border:'none',fontFamily:'var(--mono)',fontSize:'0.54rem',letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--muted)',cursor:'pointer',padding:'6px 0',textDecoration:'underline'}}>← Zurück zum Login</button>
+      </div>
+    </div>
+  );
+}
+
+// ── AUTH ──
+function AuthScreen({onLogin,onGuest}){
+  const[tab,setTab]=useState('login');
+  const[name,setName]=useState('');
+  const[email,setEmail]=useState('');
+  const[pw,setPw]=useState('');
+  const[err,setErr]=useState('');
+  const[ok,setOk]=useState('');
+  const[loading,setLoading]=useState(false);
+
+  async function doLogin(){
+    setLoading(true);setErr('');
+    const{data,error}=await sb.auth.signInWithPassword({email:email.trim(),password:pw});
+    if(error){setErr('E-Mail oder Passwort falsch.');setLoading(false);return;}
+    onLogin(data.session);
+    setLoading(false);
+  }
+
+  async function doRegister(){
+    if(!name.trim()||!email.trim()||pw.length<6){setErr('Alle Felder ausfüllen (min. 6 Zeichen).');return;}
+    setLoading(true);setErr('');
+    const{data,error}=await sb.auth.signUp({email:email.trim(),password:pw,options:{data:{name:name.trim()}}});
+    if(error){setErr(error.message);setLoading(false);return;}
+    if(data.user){await sb.from('profiles').update({name:name.trim()}).eq('id',data.user.id);}
+    setOk('Konto erstellt! Du kannst dich jetzt einloggen.');
+    setTab('login');setLoading(false);
+  }
+
+  async function doReset(){
+    if(!email.trim()){setErr('Bitte zuerst E-Mail eingeben.');return;}
+    setLoading(true);setErr('');
+    const{error}=await sb.auth.resetPasswordForEmail(email.trim(),{
+      redirectTo:'https://spinnplan-23.netlify.app'
+    });
+    if(error){setErr(error.message);setLoading(false);return;}
+    setOk('Reset-Link gesendet! Schau in dein Postfach.');
+    setLoading(false);
+  }
+
+  return(
+    <div className="auth-wrap">
+      <div style={{marginBottom:28}}><Logo height={40}/></div>
+      <div className="auth-box">
+        <div className="auth-eyebrow">Kulturspinnerei Bern</div>
+        <div className="auth-title">Spinnplan</div>
+        <div className="auth-tabs">
+          <button className={`auth-tab${tab==='login'?' active':''}`} onClick={()=>{setTab('login');setErr('');setOk('');}}>Login</button>
+          <button className={`auth-tab${tab==='register'?' active':''}`} onClick={()=>{setTab('register');setErr('');setOk('');}}>Registrieren</button>
+        </div>
+        {tab==='login'?(
+          <>
+            <div className="field"><label>E-Mail</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doLogin()} autoFocus/></div>
+            <div className="field"><label>Passwort</label><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doLogin()}/></div>
+            {err&&<div className="auth-err">{err}</div>}
+            {ok&&<div className="auth-ok">{ok}</div>}
+            <button className="btn-full primary" onClick={doLogin} disabled={loading}>{loading?'…':'Einloggen'}</button>
+            <button onClick={doReset} disabled={loading} style={{marginTop:12,width:'100%',background:'transparent',border:'none',fontFamily:'var(--mono)',fontSize:'0.54rem',letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--muted)',cursor:'pointer',padding:'6px 0',textDecoration:'underline'}}>{loading?'…':'Passwort vergessen?'}</button>
+            <div style={{display:'flex',alignItems:'center',gap:10,margin:'20px 0 4px'}}>
+              <div style={{flex:1,height:'1px',background:'var(--border)'}}/>
+              <span style={{fontFamily:'var(--mono)',fontSize:'0.5rem',letterSpacing:'0.12em',textTransform:'uppercase',color:'var(--muted)'}}>oder</span>
+              <div style={{flex:1,height:'1px',background:'var(--border)'}}/>
+            </div>
+            <button onClick={()=>onGuest()} style={{width:'100%',background:'transparent',border:'1px solid var(--border)',color:'var(--muted)',padding:'10px',fontFamily:'var(--mono)',fontSize:'0.55rem',letterSpacing:'0.12em',textTransform:'uppercase',cursor:'pointer',marginTop:4}}>Einmalig aushelfen</button>
+            <div style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)',textAlign:'center',marginTop:8,lineHeight:1.5,opacity:0.7}}>Empfohlen für Personen, die nur an einem<br/>spezifischen Anlass eine Schicht übernehmen.</div>
+          </>
+        ):(
+          <>
+            <div className="field"><label>Name</label><input type="text" value={name} onChange={e=>setName(e.target.value)} autoFocus/></div>
+            <div className="field"><label>E-Mail</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)}/></div>
+            <div className="field"><label>Passwort (min. 6 Zeichen)</label><input type="password" value={pw} onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==='Enter'&&doRegister()}/></div>
+            {err&&<div className="auth-err">{err}</div>}
+            <button className="btn-full primary" onClick={doRegister} disabled={loading}>{loading?'…':'Konto erstellen'}</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── SIGNUP MODAL ──
+function SignupModal({modal,profile,onConfirm,onClose}){
+  const[name,setName]=useState('');
+  useEffect(()=>setName(profile?.name||''),[modal?.key]);
+  if(!modal)return null;
+  return(
+    <div className="overlay open">
+      <div className="modal">
+        <div className="modal-eye">{modal.time}</div>
+        <div className="modal-h">{modal.role}</div>
+        <div className="modal-field">
+          <label>Name</label>
+          <input type="text" value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&onConfirm(name)} autoFocus/>
+        </div>
+        <div className="modal-acts">
+          <button className="btn" onClick={onClose}>Abbrechen</button>
+          <button className="btn white" onClick={()=>onConfirm(name)}>Eintragen</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PWA INSTALL ──
+function InstallBanner(){
+  const[show,setShow]=useState(false);
+  const[isIOS,setIsIOS]=useState(false);
+  const deferredRef=useRef(null);
+  useEffect(()=>{
+    if(window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone)return;
+    const ios=/iphone|ipad|ipod/i.test(navigator.userAgent)&&!window.MSStream;
+    if(ios){setIsIOS(true);setTimeout(()=>setShow(true),3000);return;}
+    window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredRef.current=e;setTimeout(()=>setShow(true),3000);});
+  },[]);
+  if(!show)return null;
+  if(isIOS)return(
+    <div className="ios-hint">
+      <button className="ios-hint-close" onClick={()=>setShow(false)}>✕</button>
+      <div className="ios-hint-title">App installieren</div>
+      <div className="ios-hint-steps">1. Tippe auf <strong>⬆ Teilen</strong> in Safari<br/>2. Wähle <strong>"Zum Home-Bildschirm"</strong><br/>3. Spinnplan erscheint als App auf deinem iPhone</div>
+    </div>
+  );
+  return(
+    <div className="pwa-banner">
+      <div className="pwa-banner-left">
+        <div className="pwa-banner-icon">S</div>
+        <div><div className="pwa-banner-title">Spinnplan installieren</div><div className="pwa-banner-sub">Direkt auf dem Homescreen</div></div>
+      </div>
+      <div className="pwa-banner-actions">
+        <button className="btn sm" onClick={()=>setShow(false)}>Nicht jetzt</button>
+        <button className="btn sm white" onClick={async()=>{if(deferredRef.current){await deferredRef.current.prompt();deferredRef.current=null;}setShow(false);}}>Installieren</button>
+      </div>
+    </div>
+  );
+}
+
+// ── ROOT APP ──
+function PasswordResetScreen(){
+  const[pw,setPw]=useState('');
+  const[pw2,setPw2]=useState('');
+  const[done,setDone]=useState(false);
+  const[err,setErr]=useState('');
+  const[saving,setSaving]=useState(false);
+  async function save(){
+    if(pw.length<6){setErr('Min. 6 Zeichen');return;}
+    if(pw!==pw2){setErr('Passwörter stimmen nicht überein');return;}
+    setSaving(true);
+    const{error}=await sb.auth.updateUser({password:pw});
+    if(error){setErr(error.message);setSaving(false);return;}
+    setDone(true);
+    setTimeout(()=>window.location.href='/',2000);
+  }
+  return(
+    <div style={{minHeight:'100vh',background:'#0a0a0a',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div style={{width:'100%',maxWidth:400,background:'#141414',border:'1px solid #2a2a2a',padding:32}}>
+        <div style={{fontFamily:"'VT323',monospace",fontSize:'1.8rem',color:'#fff',marginBottom:24,textTransform:'uppercase',letterSpacing:'0.1em'}}>Neues Passwort</div>
+        {done
+          ?<div style={{fontFamily:'monospace',fontSize:'0.7rem',color:'#6fcf7a',letterSpacing:'0.1em'}}>✓ Passwort gesetzt – weiterleitung...</div>
+          :<>
+            <div style={{marginBottom:12}}>
+              <label style={{fontFamily:'monospace',fontSize:'0.55rem',letterSpacing:'0.1em',textTransform:'uppercase',color:'#666',display:'block',marginBottom:6}}>Neues Passwort</label>
+              <input type="password" value={pw} onChange={e=>setPw(e.target.value)} style={{width:'100%',background:'#0a0a0a',border:'1px solid #2a2a2a',color:'#fff',padding:'10px 12px',fontFamily:'monospace',fontSize:'0.75rem',boxSizing:'border-box'}}/>
+            </div>
+            <div style={{marginBottom:16}}>
+              <label style={{fontFamily:'monospace',fontSize:'0.55rem',letterSpacing:'0.1em',textTransform:'uppercase',color:'#666',display:'block',marginBottom:6}}>Wiederholen</label>
+              <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} style={{width:'100%',background:'#0a0a0a',border:'1px solid #2a2a2a',color:'#fff',padding:'10px 12px',fontFamily:'monospace',fontSize:'0.75rem',boxSizing:'border-box'}}/>
+            </div>
+            {err&&<div style={{fontFamily:'monospace',fontSize:'0.55rem',color:'#ff4444',marginBottom:12}}>{err}</div>}
+            <button onClick={save} disabled={saving} style={{width:'100%',background:'#fff',color:'#000',border:'none',padding:'12px',fontFamily:'monospace',fontSize:'0.65rem',letterSpacing:'0.15em',textTransform:'uppercase',cursor:'pointer',fontWeight:700}}>
+              {saving?'Speichern…':'Passwort setzen'}
+            </button>
+          </>
+        }
+      </div>
+    </div>
+  );
+}
+
+function App(){
+  const[session,setSession]=useState(null);
+  const[profile,setProfile]=useState(null);
+  const[events,setEvents]=useState([]);
+  const[loading,setLoading]=useState(true);
+  const[modal,setModal]=useState(null);
+  const[menuOpen,setMenuOpen]=useState(false);
+  const[menuTab,setMenuTab]=useState(null);
+  const[toast,setToast]=useState(null);
+  const[guestName,setGuestName]=useState(null);
+  const[showGuestScreen,setShowGuestScreen]=useState(false);
+  const[notifs,setNotifs]=useState([]);
+  const[notifsOpen,setNotifsOpen]=useState(false);
+  const[isRecovery,setIsRecovery]=useState(()=>{
+    const hash=window.location.hash;
+    return hash.includes('type=recovery')||hash.includes('type=invite');
+  });
+
+  function showToast(msg,type='green'){setToast({msg,type,id:Date.now()});}
+  function openModal(evId,key,si,role,time){setModal({evId,key,si,role,time});}
+
+  // ── Load events + slots ──
+  async function loadEvents(){
+    const{data:evData}=await sb.from('events').select('*').order('date',{ascending:true});
+    if(!evData)return;
+    const{data:slotData}=await sb.from('slots').select('*');
+    const slotsByEvent={};
+    (slotData||[]).forEach(s=>{
+      if(!slotsByEvent[s.event_id])slotsByEvent[s.event_id]=[];
+      slotsByEvent[s.event_id].push(s);
+    });
+    setEvents(evData.map(ev=>dbToEvent(ev,slotsByEvent[ev.id]||[])));
+  }
+
+  // ── Auth state ──
+  async function loadProfile(userId, email){
+    const{data}=await sb.from('profiles').select('*').eq('id',userId).single();
+    if(data){
+      setProfile({...data,isAdmin:data.is_admin,email});
+
+      await loadNotifs(userId, data.is_admin);
+
+      // Sync OneSignal tags (with delay for SDK init)
+      setTimeout(()=>{
+        try{
+          if(window.OneSignal){
+            window.OneSignal.User.addTags({
+              is_admin: data.is_admin?'true':'false',
+              notif_new_event: (data.notif_new_event!==false)?'true':'false',
+              notif_reminder: (data.notif_reminder!==false)?'true':'false',
+              notif_48h_reminder: (data.notif_48h_reminder!==false)?'true':'false',
+              notif_absence_alert: (data.notif_absence_alert!==false)?'true':'false',
+              user_name: data.name||'',
+            }).then(()=>console.log('✓ OneSignal tags synced')).catch(e=>console.log('Tag error:',e));
+          }
+        }catch(e){console.log('OneSignal error:',e);}
+      }, 2000);
+
+      return true;
+    }
+    return false;
+  }
+
+  async function loadNotifs(userId, isAdmin){
+    const{data}=await sb.from('notifications').select('*').order('created_at',{ascending:false}).limit(30);
+    setNotifs(data||[]);
+  }
+
+  async function markNotifsRead(){
+    if(!profile)return;
+    const unread=(notifs||[]).filter(n=>!n.read_by?.includes(profile.id));
+    if(!unread.length)return;
+    for(const n of unread){
+      const readBy=[...(n.read_by||[]),profile.id];
+      await sb.from('notifications').update({read_by:readBy}).eq('id',n.id);
+    }
+    setNotifs(prev=>prev.map(n=>({...n,read_by:[...(n.read_by||[]),profile.id]})));
+  }
+
+  async function dismissNotif(id){
+    await sb.from('notifications').delete().eq('id',id);
+    setNotifs(prev=>prev.filter(n=>n.id!==id));
+  }
+
+  async function addNotif(type, title, body){
+    console.log('addNotif called:', type, title, body);
+    const{data,error}=await sb.from('notifications').insert({type,title,body,read_by:[]}).select();
+    console.log('addNotif result:', data, error);
+    if(error){console.log('addNotif error:',error);return;}
+    const{data:all}=await sb.from('notifications').select('*').order('created_at',{ascending:false}).limit(30);
+    setNotifs(all||[]);
+  }
+
+
+
+  useEffect(()=>{
+    // Handle auth tokens in URL (password reset, invite)
+    if(window.location.hash.includes('access_token')){
+      sb.auth.getSession().then(async({data:{session}})=>{
+        if(session){
+          const type=window.location.hash.includes('type=recovery')||window.location.hash.includes('type=invite');
+          if(type){setIsRecovery(true);setLoading(false);return;}
+          await loadProfile(session.user.id, session.user.email);
+          await loadEvents();
+        }
+        setLoading(false);
+      });
+      return;
+    }
+    sb.auth.getSession().then(async({data:{session}})=>{
+      if(session){
+        await loadProfile(session.user.id, session.user.email);
+        await loadEvents();
+      }
+      setLoading(false);
+    });
+  },[]);
+
+  // ── Realtime subscriptions ──
+  useEffect(()=>{
+    if(!session)return;
+    const evSub=sb.channel('events-changes')
+      .on('postgres_changes',{event:'*',schema:'public',table:'events'},()=>loadEvents())
+      .on('postgres_changes',{event:'*',schema:'public',table:'slots'},payload=>{
+        if(payload.eventType==='UPDATE'||payload.eventType==='INSERT'){
+          const s=payload.new;
+          setEvents(prev=>prev.map(ev=>{
+            if(ev.id!==s.event_id)return ev;
+            const slots={...ev.slots,[s.slot_key]:[...(ev.slots[s.slot_key]||[])]};
+            slots[s.slot_key][s.slot_index]=s.user_name||'';
+            return{...ev,slots};
+          }));
+        }
+      })
+      .subscribe();
+    return()=>sb.removeChannel(evSub);
+  },[session]);
+
+  // ── Slot change handler ──
+  async function onSlotChange(evId,key,si,userName,userId){
+    setEvents(prev=>prev.map(ev=>{
+      if(ev.id!==evId)return ev;
+      const slots={...ev.slots,[key]:[...(ev.slots[key]||[])]};
+      slots[key][si]=userName;
+      return{...ev,slots};
+    }));
+    // Try update first, then insert if not exists
+    const{error:upErr}=await sb.from('slots')
+      .update({user_name:userName||'',user_id:userId||null,updated_at:new Date().toISOString()})
+      .eq('event_id',evId).eq('slot_key',key).eq('slot_index',si);
+    if(upErr){
+      // Fallback: insert
+      const{error:inErr}=await sb.from('slots')
+        .insert({event_id:evId,slot_key:key,slot_index:si,user_name:userName||'',user_id:userId||null});
+      if(inErr){showToast('Fehler beim Speichern','red');console.error(inErr);await loadEvents();}
+    }
+  }
+
+  async function confirmSignup(name){
+    if(!name.trim()||!modal)return;
+    // Check: same name already in a DIFFERENT role with OVERLAPPING time
+    const ev=events.find(e=>e.id===modal.evId);
+    if(ev){
+      const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
+      const currentRole=modal.key.split('_')[0];
+      const currentBlockIdx=parseInt(modal.key.split('_')[1]);
+      const currentTime=blocks[currentBlockIdx]; // e.g. "21:00 – 22:30"
+      function parseBlock(t){const[s,e]=t.split(' – ');return[toMins(s),toMins(e)];}
+      const[cs,ce]=parseBlock(currentTime);
+      const conflict=Object.entries(ev.slots||{}).some(([key,arr])=>{
+        const role=key.split('_')[0];
+        if(role===currentRole)return false; // same role is fine
+        const bi=parseInt(key.split('_')[1]);
+        const blockTime=blocks[bi];
+        if(!blockTime)return false;
+        const[bs,be]=parseBlock(blockTime);
+        // Check overlap: two blocks overlap if one starts before the other ends
+        const overlaps=cs<be&&bs<ce;
+        if(!overlaps)return false;
+        return arr.some(v=>v&&v.trim().toLowerCase()===name.trim().toLowerCase());
+      });
+      if(conflict){
+        showToast(`${name.trim()} ist bereits in einer anderen Rolle zur gleichen Zeit eingetragen`,'red');
+        return;
+      }
+    }
+    await onSlotChange(modal.evId,modal.key,modal.si,name.trim(),guestName?null:profile?.id||null);
+    setModal(null);
+    showToast(`${name.trim()} eingetragen`,'green');
+  }
+
+  async function logout(){
+    await sb.auth.signOut();
+    setSession(null);setProfile(null);setEvents([]);
+  }
+
+    if(isRecovery)return<PasswordResetScreen/>;
+
+  if(loading)return(
+    <div className="loading-screen">
+      <Logo height={36}/>
+      <div className="loading-spinner"></div>
+      <div className="loading-text">Verbinden…</div>
+    </div>
+  );
+
+  if(!guestName&&(!session||!profile)){
+    if(showGuestScreen) return<GuestScreen
+      onGuest={(name)=>{setGuestName(name);setShowGuestScreen(false);loadEvents();}}
+      onBack={()=>setShowGuestScreen(false)}
+    />;
+    return<AuthScreen onLogin={async(s)=>{
+      if(!s)return;
+      setSession(s);
+      await loadProfile(s.user.id, s.user.email);
+      await loadEvents();
+    }} onGuest={()=>setShowGuestScreen(true)}/>;
+  };
+
+  return(
+    <>
+      <div className="header">
+        <div className="header-left">
+          <Logo height={64} spin={true}/><span style={{fontFamily:"var(--cond)",fontSize:"1.5rem",fontWeight:900,textTransform:"uppercase",letterSpacing:"0.14em",marginLeft:"12px",color:"var(--fg)"}}>Spinnplan</span>
+        </div>
+        <div className="header-right">
+          {guestName
+            ?<><span className="h-badge" style={{background:'#333'}}>Aushilfe</span>
+              <button className="btn sm" style={{marginLeft:8,fontSize:'0.5rem'}} onClick={()=>{setGuestName(null);setEvents([]);}}>← Login</button></>
+            :<>{profile.isAdmin&&<span className="h-badge">⚙ Admin</span>}
+              {!guestName&&<button className="h-notif-btn" onClick={()=>{setNotifsOpen(o=>!o);if(!notifsOpen)markNotifsRead();}} aria-label="Notifications">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                {(notifs||[]).filter(n=>!n.read_by?.includes(profile?.id)).length>0&&
+                  <span className="h-notif-badge">{(notifs||[]).filter(n=>!n.read_by?.includes(profile?.id)).length}</span>
+                }
+              </button>}
+              <button className="h-menu-btn" onClick={()=>setMenuOpen(o=>!o)} aria-label="Menu">
+                <span className="h-menu-icon">{menuOpen?'✕':'☰'}</span>
+              </button></>
+          }
+        </div>
+      </div>
+      {menuOpen&&(
+        <div className="h-dropdown" onClick={()=>setMenuOpen(false)}>
+          <div className="h-dropdown-inner" onClick={e=>e.stopPropagation()}>
+            <div className="h-dropdown-name">{profile.name}</div>
+            {profile.isAdmin&&<div className="h-dropdown-role">⚙ Admin</div>}
+            <div className="h-dropdown-divider"/>
+            <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('profil');}}>👤 Profil</button>
+            <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('notif');}}>🔔 Benachrichtigungen</button>
+            <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('guides');}}>📋 Anleitungen</button>
+            <div className="h-dropdown-divider"/>
+            <button className="h-dropdown-item red" onClick={()=>{setMenuOpen(false);logout();}}>→ Logout</button>
+          </div>
+        </div>
+      )}
+
+      {notifsOpen&&!guestName&&<NotificationsPanel notifs={notifs} profile={profile} onClose={()=>setNotifsOpen(false)} onDismiss={dismissNotif}/>}
+
+      {menuTab==='profil'&&(
+        <div className="main">
+          <button className="btn" style={{marginBottom:16}} onClick={()=>setMenuTab(null)}>← Zurück</button>
+          <ProfilePage profile={profile} setProfile={p=>setProfile(p)} showToast={showToast}/>
+        </div>
+      )}
+      {menuTab==='notif'&&(
+        <div className="main">
+          <button className="btn" style={{marginBottom:16}} onClick={()=>setMenuTab(null)}>← Zurück</button>
+          <NotifPage profile={profile} setProfile={p=>setProfile(p)} showToast={showToast}/>
+        </div>
+      )}
+      {menuTab==='guides'&&(
+        <div className="main">
+          <button className="btn" style={{marginBottom:16}} onClick={()=>setMenuTab(null)}>← Zurück</button>
+          <GuidesPage isAdmin={profile?.is_admin} showToast={showToast}/>
+        </div>
+      )}
+      {!menuTab&&(guestName
+        ?<GuestView events={events} guestName={guestName} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast}/>
+        :profile.is_admin
+          ?<AdminPanel events={events} profile={profile} setProfile={p=>setProfile(p)} onSlotChange={onSlotChange} showToast={showToast} loadEvents={loadEvents} openModal={openModal} addNotif={addNotif}/>
+          :<UserView events={events} profile={profile} setProfile={p=>{setProfile(p);}} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast}/>
+      )}
+
+      <SignupModal modal={modal} profile={guestName?{name:guestName,isGuest:true}:profile} onConfirm={confirmSignup} onClose={()=>setModal(null)}/>
+      {toast&&<Toast key={toast.id} msg={toast.msg} type={toast.type} onDone={()=>setToast(null)}/>}
+      <InstallBanner/>
+    </>
+  );
+}
+
+ReactDOM.render(<App/>,document.getElementById('root'));
+
+// Service Worker
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
