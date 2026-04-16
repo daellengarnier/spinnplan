@@ -1828,14 +1828,10 @@ function App(){
 
 
   useEffect(()=>{
-    // Listen for all auth state changes (login, token refresh, logout)
-    const{data:{subscription}}=sb.auth.onAuthStateChange(async(event,newSession)=>{
-      if(event==='SIGNED_IN'||event==='TOKEN_REFRESHED'){
+    // Listen for auth state changes (token refresh, logout)
+    const{data:{subscription}}=sb.auth.onAuthStateChange((event,newSession)=>{
+      if(event==='TOKEN_REFRESHED'&&newSession){
         setSession(newSession);
-        if(!profile&&newSession?.user){
-          await loadProfile(newSession.user.id, newSession.user.email);
-          await loadEvents();
-        }
       }
       if(event==='SIGNED_OUT'){
         setSession(null);setProfile(null);setEvents([]);
@@ -1853,7 +1849,7 @@ function App(){
           await loadEvents();
         }
         setLoading(false);
-      });
+      }).catch(()=>setLoading(false));
       return ()=>subscription.unsubscribe();
     }
     sb.auth.getSession().then(async({data:{session}})=>{
@@ -1863,7 +1859,7 @@ function App(){
         await loadEvents();
       }
       setLoading(false);
-    });
+    }).catch(()=>setLoading(false));
     return ()=>subscription.unsubscribe();
   },[]);
 
