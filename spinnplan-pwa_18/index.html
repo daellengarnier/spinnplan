@@ -1108,6 +1108,57 @@ function NotifPage({profile,setProfile,showToast}){
   );
 }
 
+// ── USERS PAGE (Admin only) ──
+function UsersPage({showToast}){
+  const[users,setUsers]=useState([]);
+  const[loading,setLoading]=useState(true);
+
+  useEffect(()=>{
+    sb.from('profiles').select('*').order('created_at',{ascending:false})
+      .then(({data})=>{setUsers(data||[]);setLoading(false);})
+      .catch(()=>setLoading(false));
+  },[]);
+
+  async function toggleAdmin(user){
+    if(!window.confirm(user.is_admin
+      ?`${user.name} Admin-Rechte entziehen?`
+      :`${user.name} zum Admin machen?`))return;
+    const newVal=!user.is_admin;
+    const{error}=await sb.from('profiles').update({is_admin:newVal}).eq('id',user.id);
+    if(error){showToast('Fehler: '+error.message,'red');return;}
+    setUsers(prev=>prev.map(u=>u.id===user.id?{...u,is_admin:newVal}:u));
+    showToast(newVal?`${user.name} ist jetzt Admin`:`Admin-Rechte von ${user.name} entfernt`,'green');
+  }
+
+  if(loading)return<div style={{padding:40,textAlign:'center'}}><div className="loading-spinner" style={{margin:'0 auto'}}/></div>;
+
+  return(
+    <>
+      <div className="page-top"><div><div className="page-eyebrow">Admin</div><h2 className="page-title">User:innen</h2></div>
+        <span style={{fontFamily:'var(--mono)',fontSize:'0.55rem',color:'var(--muted)',letterSpacing:'0.08em'}}>{users.length} registriert</span>
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:2}}>
+        {users.map(u=>(
+          <div key={u.id} style={{background:'var(--surface)',border:'1px solid var(--border)',padding:'14px 18px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+            <div style={{display:'flex',flexDirection:'column',gap:4,minWidth:0,flex:1}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:'0.92rem',fontWeight:600}}>{u.name}</span>
+                {u.is_admin&&<span className="h-badge" style={{fontSize:'0.42rem',padding:'2px 6px'}}>Admin</span>}
+              </div>
+              <span style={{fontFamily:'var(--mono)',fontSize:'0.52rem',color:'var(--muted)',letterSpacing:'0.06em'}}>
+                Registriert {new Date(u.created_at).toLocaleDateString('de-CH',{day:'2-digit',month:'2-digit',year:'numeric'})}
+              </span>
+            </div>
+            <button className={`btn sm${u.is_admin?' red':''}`} style={{fontSize:'0.48rem',whiteSpace:'nowrap'}} onClick={()=>toggleAdmin(u)}>
+              {u.is_admin?'Admin entziehen':'Zum Admin'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
 // ── PROFILE PAGE ──
 function ProfilePage({profile,setProfile,showToast}){
   const[name,setName]=useState(profile.name||'');
@@ -1998,6 +2049,7 @@ function App(){
             <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('profil');}}>👤 Profil</button>
             <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('notif');}}>🔔 Benachrichtigungen</button>
             <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('guides');}}>📋 Anleitungen</button>
+            {profile.isAdmin&&<button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('users');}}>👥 User:innen</button>}
             <div className="h-dropdown-divider"/>
             <button className="h-dropdown-item red" onClick={()=>{setMenuOpen(false);logout();}}>→ Logout</button>
           </div>
@@ -2022,6 +2074,12 @@ function App(){
         <div className="main">
           <button className="btn" style={{marginBottom:16}} onClick={()=>setMenuTab(null)}>← Zurück</button>
           <GuidesPage isAdmin={profile?.is_admin} showToast={showToast}/>
+        </div>
+      )}
+      {menuTab==='users'&&profile?.isAdmin&&(
+        <div className="main">
+          <button className="btn" style={{marginBottom:16}} onClick={()=>setMenuTab(null)}>← Zurück</button>
+          <UsersPage showToast={showToast}/>
         </div>
       )}
       {!menuTab&&(guestName
