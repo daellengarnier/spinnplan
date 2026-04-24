@@ -806,6 +806,28 @@ function exportPDF(ev){
 function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToast,loadEvents,openModal,addNotif}){
   const[tab,setTab]=useState('events');
   const[editing,setEditing]=useState(null);
+  const[sendingReminder,setSendingReminder]=useState(null);
+
+  async function sendShiftReminder(ev){
+    const total=countSlots(ev),filled=countFilled(ev);
+    const openSlots=total-filled;
+    if(openSlots===0){showToast('Alle Schichten sind besetzt!','green');return;}
+    if(!window.confirm(`Push-Notification senden?\n\n"${ev.name}" hat noch ${openSlots} offene Schichten.`))return;
+    setSendingReminder(ev.id);
+    const d=new Date(ev.date+'T12:00:00').toLocaleDateString('de-CH',{weekday:'long',day:'numeric',month:'long'});
+    const title=`${ev.name} – ${openSlots} offene Schichten`;
+    const body=`Am ${d} hat es noch ${openSlots} offene Schichten. Wir wären super dankbar, wenn du eine Schicht übernehmen könntest!`;
+    await addNotif('shift_reminder',title,body);
+    try{
+      await fetch('https://biyeggzutwajuueexcxl.supabase.co/functions/v1/notify-new-event',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':`Bearer ${(await sb.auth.getSession()).data.session?.access_token}`},
+        body:JSON.stringify({name:title,date:ev.date,start_time:ev.startTime,end_time:ev.endTime,type:'shift_reminder',body})
+      });
+    }catch(e){console.log('Push error:',e);}
+    setSendingReminder(null);
+    showToast('Erinnerung gesendet!','green');
+  }
 
   async function saveEvent(ev){
     const isNew=!ev.id||typeof ev.id==='number';
@@ -882,6 +904,7 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
                 <div key={ev.id}>
                   <EventCard ev={ev} currentUser={profile} isAdmin={true} onSlotChange={onSlotChange} openModal={openModal}/>
                   <div className="ev-admin-actions">
+                    {(countSlots(ev)-countFilled(ev))>0&&<button className="btn sm" style={{borderColor:'var(--gold)',color:'var(--gold)'}} onClick={()=>sendShiftReminder(ev)} disabled={sendingReminder===ev.id}>{sendingReminder===ev.id?'Senden…':'📢 Schichten gesucht'}</button>}
                     <button className="btn sm green" onClick={()=>exportPDF(ev)}>↓ PDF</button>
                     <button className="btn sm" onClick={()=>setEditing(ev)}>✎ Bearbeiten</button>
                     <button className="btn sm red" onClick={()=>deleteEvent(ev.id)}>✕ Löschen</button>
@@ -1258,7 +1281,7 @@ function NotificationsPanel({notifs,profile,onClose,onDismiss}){
     if(d<86400)return `vor ${Math.floor(d/3600)} Std.`;
     return `vor ${Math.floor(d/86400)} Tagen`;
   }
-  const icons={new_event:'📅',absence:'🚨',reminder:'⏰',admin_48h:'⚠️'};
+  const icons={new_event:'📅',absence:'🚨',reminder:'⏰',admin_48h:'⚠️',shift_reminder:'📢'};
   return(
     <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,zIndex:200}} onClick={onClose}>
       <div style={{position:'absolute',top:'calc(70px + env(safe-area-inset-top))',right:16,width:'min(380px,calc(100vw - 32px))',background:'#141414',border:'1px solid #2a2a2a',boxShadow:'0 8px 32px rgba(0,0,0,0.6)',maxHeight:'70vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
