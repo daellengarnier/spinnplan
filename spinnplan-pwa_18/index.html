@@ -1846,17 +1846,23 @@ function App(){
       await loadNotifs(userId, data.is_admin);
 
       // Sync OneSignal tags (with delay for SDK init)
-      setTimeout(()=>{
+      setTimeout(async()=>{
         try{
           if(window.OneSignal){
-            window.OneSignal.User.addTags({
+            // Ensure user is subscribed to push notifications
+            const perm=await window.OneSignal.Notifications.permission;
+            if(!perm){
+              await window.OneSignal.Slidedown.promptPush();
+            }
+            await window.OneSignal.User.addTags({
               is_admin: data.is_admin?'true':'false',
               notif_new_event: (data.notif_new_event!==false)?'true':'false',
               notif_reminder: (data.notif_reminder!==false)?'true':'false',
-              notif_48h_reminder: (data.notif_48h_reminder!==false)?'true':'false',
-              notif_absence_alert: (data.notif_absence_alert!==false)?'true':'false',
+              notif_48h_reminder: (data.notif_48h_reminder===true)?'true':'false',
+              notif_absence_alert: (data.notif_absence_alert===true)?'true':'false',
               user_name: data.name||'',
-            }).then(()=>console.log('✓ OneSignal tags synced')).catch(e=>console.log('Tag error:',e));
+            });
+            console.log('✓ OneSignal tags synced');
           }
         }catch(e){console.log('OneSignal error:',e);}
       }, 2000);
