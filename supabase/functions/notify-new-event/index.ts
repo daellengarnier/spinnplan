@@ -1,7 +1,13 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import webpush from "npm:web-push@3.6.7";
 
-const ONESIGNAL_APP_ID = "ba00c132-62a5-4f4a-b462-4d9f0ec6ceb0";
-const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "";
+const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY") || "";
+const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY") || "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+
+webpush.setVapidDetails("mailto:info@kulturspinnerei.ch", VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,41 +24,60 @@ serve(async (req) => {
     const { name, date, start_time, end_time, type, body: customBody } = await req.json();
 
     const isShiftReminder = type === "shift_reminder";
+    const title = isShiftReminder ? name : `Neuer Anlass: ${name}`;
 
-    const heading = isShiftReminder ? name : `Neuer Anlass: ${name}`;
-
-    let content: string;
+    let body: string;
     if (isShiftReminder && customBody) {
-      content = customBody;
+      body = customBody;
     } else {
       const dateStr = new Date(date + "T12:00:00").toLocaleDateString("de-CH", {
         weekday: "long",
         day: "numeric",
         month: "long",
       });
-      content = `${dateStr} · ${start_time || ""}–${end_time || ""}. Trag dich jetzt für eine Schicht ein!`;
+      body = `${dateStr} · ${start_time || ""}–${end_time || ""}. Trag dich jetzt für eine Schicht ein!`;
     }
 
-    // Send to all subscribed users via OneSignal
-    const onesignalRes = await fetch("https://onesignal.com/api/v1/notifications", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
-      },
-      body: JSON.stringify({
-        app_id: ONESIGNAL_APP_ID,
-        included_segments: ["Subscribed Users"],
-        headings: { en: heading, de: heading },
-        contents: { en: content, de: content },
-        url: "https://spinnplan-23.netlify.app",
-      }),
+    const payload = JSON.stringify({
+      title,
+      body,
+      url: "https://spinnplan-23.netlify.app",
     });
 
-    const result = await onesignalRes.json();
-    console.log("OneSignal response:", JSON.stringify(result));
+    // Get all push subscriptions from Supabase
+    const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { data: subs } = await sb.from("push_subscriptions").select("*");
 
-    return new Response(JSON.stringify({ success: true, recipients: result.recipients || 0 }), {
+    let sent = 0;
+    let failed = 0;
+    const stale: string[] = [];
+
+    for (const sub of subs || []) {
+      const pushSub = {
+        endpoint: sub.endpoint,
+        keys: { p256dh: sub.p256dh, auth: sub.auth },
+      };
+      try {
+        await webpush.sendNotification(pushSub, payload);
+        sent++;
+      } catch (err: any) {
+        failed++;
+        // Remove expired/invalid subscriptions (410 Gone, 404 Not Found)
+        if (err.statusCode === 410 || err.statusCode === 404) {
+          stale.push(sub.endpoint);
+        }
+        console.error(`Push failed for ${sub.endpoint}:`, err.statusCode || err.message);
+      }
+    }
+
+    // Clean up stale subscriptions
+    if (stale.length > 0) {
+      await sb.from("push_subscriptions").delete().in("endpoint", stale);
+    }
+
+    console.log(`Push sent: ${sent}, failed: ${failed}, cleaned: ${stale.length}`);
+
+    return new Response(JSON.stringify({ success: true, sent, failed }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

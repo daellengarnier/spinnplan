@@ -107,6 +107,19 @@ create policy "Only admins can insert notifications" on public.notifications for
 );
 create policy "Anyone logged in can update notifications" on public.notifications for update using (auth.role() = 'authenticated');
 
+-- ── PUSH SUBSCRIPTIONS ──
+create table public.push_subscriptions (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references public.profiles(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz default now()
+);
+alter table public.push_subscriptions enable row level security;
+create policy "Users can manage their own subscriptions" on public.push_subscriptions for all using (auth.uid() = user_id);
+create policy "Service role can read all subscriptions" on public.push_subscriptions for select using (true);
+
 -- ── Enable Realtime ──
 alter publication supabase_realtime add table public.events;
 alter publication supabase_realtime add table public.slots;
@@ -130,3 +143,16 @@ alter publication supabase_realtime add table public.slots;
 --   user_id IS NULL OR
 --   EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND is_admin = true)
 -- );
+--
+-- -- Push subscriptions table (for native Web Push)
+-- CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+--   id uuid default uuid_generate_v4() primary key,
+--   user_id uuid references public.profiles(id) on delete cascade,
+--   endpoint text not null unique,
+--   p256dh text not null,
+--   auth text not null,
+--   created_at timestamptz default now()
+-- );
+-- ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY "Users can manage their own subscriptions" ON public.push_subscriptions FOR ALL USING (auth.uid() = user_id);
+-- CREATE POLICY "Service role can read all subscriptions" ON public.push_subscriptions FOR SELECT USING (true);

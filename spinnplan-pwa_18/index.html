@@ -327,34 +327,6 @@ input,button,select,textarea{font-family:'VT323',monospace;}
   .nav-badge{font-size:0.38rem;padding:1px 4px;}
 }
 </style>
-
-<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "ba00c132-62a5-4f4a-b462-4d9f0ec6ceb0",
-      notifyButton: { enable: false },
-      allowLocalhostAsSecureOrigin: false,
-      serviceWorkerParam: { scope: "/" },
-      serviceWorkerPath: "OneSignalSDKWorker.js",
-      promptOptions: {
-        slidedown: {
-          prompts: [{
-            type: "push",
-            autoPrompt: true,
-            text: {
-              actionMessage: "Erhalte Benachrichtigungen über neue Anlässe und Schicht-Reminders.",
-              acceptButton: "Erlauben",
-              cancelButton: "Später"
-            },
-            delay: { pageViews: 1, timeDelay: 3 }
-          }]
-        }
-      }
-    });
-  });
-</script>
 </head>
 <body>
 <div id="root"></div>
@@ -365,6 +337,31 @@ const {useState,useEffect,useRef,useMemo,useCallback}=React;
 const SUPA_URL='https://biyeggzutwajuueexcxl.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJpeWVnZ3p1dHdhanV1ZWV4Y3hsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzNTA0NTAsImV4cCI6MjA4ODkyNjQ1MH0.KLmelyTy7z6043NykBBnB5lZggMrrIZ2El1e_lnogA8';
 const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+// ── WEB PUSH ──
+const VAPID_PUBLIC_KEY='BFCrwyzX96wvG0sc8qjhJ9yG3gS9iVpd-kh1s2JgbG8VURqo85qXyFqNYwXqUOuR-9Xhwd9xy7q_zh9FR30NbFA';
+function urlBase64ToUint8Array(base64String){
+  const padding='='.repeat((4-base64String.length%4)%4);
+  const base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(base64);const arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;++i)arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+async function subscribePush(userId){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))return;
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub){
+      sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)});
+    }
+    const subJson=sub.toJSON();
+    await sb.from('push_subscriptions').upsert({
+      user_id:userId,endpoint:subJson.endpoint,
+      p256dh:subJson.keys.p256dh,auth:subJson.keys.auth
+    },{onConflict:'endpoint'});
+  }catch(e){console.log('Push subscription error:',e);}
+}
 
 // ── CONSTANTS ──
 const FIXED_ROLES=['Abendverantwortung (AV)','Barverantwortung (BV)','Licht','Ton','Kochen','Filmen'];
@@ -1088,13 +1085,6 @@ function NotifPage({profile,setProfile,showToast}){
     const updates={};updates[field]=val;
     await sb.from('profiles').update(updates).eq('id',profile.id);
     setProfile({...profile,[field]:val});
-    // Sync tag to OneSignal
-    try{
-      if(window.OneSignal){
-        window.OneSignal.User.addTags({[field]:val?'true':'false'})
-          .catch(e=>console.log('OneSignal tag sync error:',e));
-      }
-    }catch(e){console.log('OneSignal error:',e);}
     showToast(val?'Aktiviert':'Deaktiviert','green');
   }
   const isAdmin=profile.is_admin;
@@ -1845,27 +1835,8 @@ function App(){
 
       await loadNotifs(userId, data.is_admin);
 
-      // Sync OneSignal tags (with delay for SDK init)
-      setTimeout(async()=>{
-        try{
-          if(window.OneSignal){
-            // Ensure user is subscribed to push notifications
-            const perm=await window.OneSignal.Notifications.permission;
-            if(!perm){
-              await window.OneSignal.Slidedown.promptPush();
-            }
-            await window.OneSignal.User.addTags({
-              is_admin: data.is_admin?'true':'false',
-              notif_new_event: (data.notif_new_event!==false)?'true':'false',
-              notif_reminder: (data.notif_reminder!==false)?'true':'false',
-              notif_48h_reminder: (data.notif_48h_reminder===true)?'true':'false',
-              notif_absence_alert: (data.notif_absence_alert===true)?'true':'false',
-              user_name: data.name||'',
-            });
-            console.log('✓ OneSignal tags synced');
-          }
-        }catch(e){console.log('OneSignal error:',e);}
-      }, 2000);
+      // Subscribe to push notifications
+      setTimeout(()=>subscribePush(userId),2000);
 
       return true;
     }
