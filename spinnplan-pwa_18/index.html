@@ -382,6 +382,17 @@ const TEMPLATES=[
 // ── HELPERS ──
 function toMins(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
 function fromMins(m){const t=((m%1440)+1440)%1440;return`${String(Math.floor(t/60)).padStart(2,'0')}:${String(t%60).padStart(2,'0')}`;}
+function isEventPast(ev){
+  const blocks=computeBlocks(ev.startTime||ev.start_time,ev.durHours||ev.dur_hours,ev.numBlocks||ev.num_blocks);
+  const lastEnd=blocks.length>0?blocks[blocks.length-1].split(' – ')[1]:'23:59';
+  const endMins=toMins(lastEnd);const startMins=toMins(ev.startTime||ev.start_time||'00:00');
+  const overnight=endMins<=startMins;
+  const endDate=new Date(ev.date+'T00:00:00');
+  if(overnight)endDate.setDate(endDate.getDate()+1);
+  const[eh,em]=lastEnd.split(':').map(Number);
+  endDate.setHours(eh,em,0,0);
+  return endDate<new Date();
+}
 function computeBlocks(startTime,durHours,numBlocks){
   let mins=toMins(startTime);const durMins=durHours*60;const blocks=[];
   for(let i=0;i<numBlocks;i++){const s=fromMins(mins);mins+=durMins;blocks.push(`${s} – ${fromMins(mins)}`);}
@@ -895,9 +906,11 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
             <div className="page-top">
               <div><div className="page-eyebrow">Admin</div><h2 className="page-title">Anlässe</h2></div>
             </div>
-            {events.length===0&&<div className="empty-state"><div className="big">Keine Anlässe</div><p>Erstelle den ersten Anlasse oben.</p></div>}
+            {(()=>{const upcoming=events.filter(ev=>!isEventPast(ev));
+            return<>
+            {upcoming.length===0&&<div className="empty-state"><div className="big">Keine Anlässe</div><p>Erstelle den ersten Anlasse oben.</p></div>}
             <div className="events-grid">
-              {events.map(ev=>(
+              {upcoming.map(ev=>(
                 <div key={ev.id}>
                   <EventCard ev={ev} currentUser={profile} isAdmin={true} onSlotChange={onSlotChange} openModal={openModal}/>
                   <div className="ev-admin-actions">
@@ -908,7 +921,7 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
                   </div>
                 </div>
               ))}
-            </div>
+            </div></>})()}
           </>
         )}
         {tab==='mine'&&<MyShiftsView events={events} profile={profile} onSlotChange={onSlotChange} showToast={showToast}/>}
@@ -1061,13 +1074,15 @@ function UserView({events,profile,setProfile,onSlotChange,openModal,showToast}){
       <div className="main">
         {tab==='events'&&(
           <>
+            {(()=>{const upcoming=events.filter(ev=>!isEventPast(ev));
+            return<>
             <div className="page-top"><div><div className="page-eyebrow">Spinnplan</div><h2 className="page-title">Anlässe</h2></div></div>
-            {events.length===0&&<div className="empty-state"><div className="big">Keine Anlässe</div><p>Noch keine Anlässe verfügbar.</p></div>}
+            {upcoming.length===0&&<div className="empty-state"><div className="big">Keine Anlässe</div><p>Noch keine Anlässe verfügbar.</p></div>}
             <div className="events-grid">
-              {events.map(ev=>(
+              {upcoming.map(ev=>(
                 <EventCard key={ev.id} ev={ev} currentUser={profile} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal}/>
               ))}
-            </div>
+            </div></>})()}
           </>
         )}
         {tab==='mine'&&<MyShiftsView events={events} profile={profile} onSlotChange={onSlotChange} showToast={showToast}/>}
@@ -1117,6 +1132,32 @@ function NotifPage({profile,setProfile,showToast}){
           </div>
         </>}
       </div>
+    </>
+  );
+}
+
+// ── ARCHIVE PAGE ──
+function ArchivePage({events,profile,onSlotChange,openModal}){
+  const pastEvents=events.filter(ev=>isEventPast(ev)).sort((a,b)=>b.date.localeCompare(a.date));
+  const isAdmin=profile?.is_admin||profile?.isAdmin;
+  return(
+    <>
+      <div className="page-top"><div><div className="page-eyebrow">Vergangene</div><h2 className="page-title">Archiv</h2></div>
+        <span style={{fontFamily:'var(--mono)',fontSize:'0.55rem',color:'var(--muted)',letterSpacing:'0.08em'}}>{pastEvents.length} Anlässe</span>
+      </div>
+      {pastEvents.length===0
+        ?<div className="empty-state"><div className="big">Kein Archiv</div><p>Vergangene Anlässe erscheinen hier automatisch.</p></div>
+        :<div className="events-grid">
+          {pastEvents.map(ev=>(
+            <div key={ev.id}>
+              <EventCard ev={ev} currentUser={profile} isAdmin={isAdmin} onSlotChange={onSlotChange} openModal={openModal}/>
+              {isAdmin&&<div className="ev-admin-actions">
+                <button className="btn sm green" onClick={()=>exportPDF(ev)}>↓ PDF</button>
+              </div>}
+            </div>
+          ))}
+        </div>
+      }
     </>
   );
 }
@@ -2052,6 +2093,7 @@ function App(){
             <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('profil');}}>👤 Profil</button>
             <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('notif');}}>🔔 Benachrichtigungen</button>
             <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('guides');}}>📋 Anleitungen</button>
+            <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('archiv');}}>📦 Archiv</button>
             {profile.isAdmin&&<button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('users');}}>👥 User:innen</button>}
             <div className="h-dropdown-divider"/>
             <button className="h-dropdown-item red" onClick={()=>{setMenuOpen(false);logout();}}>→ Logout</button>
@@ -2077,6 +2119,12 @@ function App(){
         <div className="main">
           <button className="btn" style={{marginBottom:16}} onClick={()=>setMenuTab(null)}>← Zurück</button>
           <GuidesPage isAdmin={profile?.is_admin} showToast={showToast}/>
+        </div>
+      )}
+      {menuTab==='archiv'&&(
+        <div className="main">
+          <button className="btn" style={{marginBottom:16}} onClick={()=>setMenuTab(null)}>← Zurück</button>
+          <ArchivePage events={events} profile={profile} onSlotChange={onSlotChange} openModal={openModal}/>
         </div>
       )}
       {menuTab==='users'&&profile?.isAdmin&&(
