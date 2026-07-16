@@ -35,6 +35,7 @@ create table public.events (
   role_counts jsonb not null default '{}',
   role_blocks jsonb not null default '{}',
   role_dur_hours jsonb not null default '{}',
+  role_start_times jsonb not null default '{}',
   fixed_roles jsonb not null default '{}',
   created_by uuid references public.profiles(id),
   created_at timestamptz default now()
@@ -158,5 +159,6 @@ alter publication supabase_realtime add table public.slots;
 -- CREATE POLICY "Users can manage their own subscriptions" ON public.push_subscriptions FOR ALL USING (auth.uid() = user_id);
 -- CREATE POLICY "Service role can read all subscriptions" ON public.push_subscriptions FOR SELECT USING (true);
 --
--- -- Per-role shift duration
+-- -- Per-role shift duration and start times
 -- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS role_dur_hours jsonb not null default '{}';
+-- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS role_start_times jsonb not null default '{}';
