@@ -371,12 +371,19 @@ const ALL_SHIFT_TYPES=[
   {key:'Sicherheit',label:'Sicherheit',defaultCount:2},
   {key:'Garderobe',label:'Garderobe',defaultCount:1},
   {key:'Springer',label:'Springer*in',defaultCount:1},
+  {key:'BarSpinnerei',label:'Bar Spinnerei',defaultCount:2},
+  {key:'BarOstblock',label:'Bar Ostblock',defaultCount:2},
+  {key:'CocktailDreiecksbar',label:'Cocktail-Dreiecksbar',defaultCount:2},
+  {key:'BarGarten',label:'Bar Garten',defaultCount:2},
+  {key:'Snackbar',label:'Snackbar',defaultCount:2},
+  {key:'SnackbarKleemex',label:'Snackbar Klinik KLEEMEX',defaultCount:2},
 ];
 const DUR_OPTIONS=[{label:'1h',hours:1},{label:'1.5h',hours:1.5},{label:'2h',hours:2},{label:'3h',hours:3}];
 const TEMPLATES=[
   {label:'Konzertabend',icon:'🎸',startTime:'21:00',endTime:'00:30',durHours:1.5,enabledRoles:{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
   {label:'Clubnacht',icon:'🎧',startTime:'22:00',endTime:'04:00',durHours:2,enabledRoles:{Einlass:true,Bar:true,Sicherheit:true,Garderobe:false,Springer:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
   {label:'Kleinanlasse',icon:'🎤',startTime:'19:00',endTime:'22:00',durHours:1.5,enabledRoles:{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:false},roleCounts:{Einlass:1,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
+  {label:'Hausfest',icon:'🎉',startTime:'16:00',endTime:'08:00',durHours:2,enabledRoles:{Einlass:true,Bar:false,Sicherheit:true,Garderobe:false,Springer:false,BarSpinnerei:true,BarOstblock:true,CocktailDreiecksbar:true,BarGarten:true,Snackbar:true,SnackbarKleemex:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1,BarSpinnerei:2,BarOstblock:2,CocktailDreiecksbar:2,BarGarten:2,Snackbar:2,SnackbarKleemex:2}},
 ];
 
 // ── HELPERS ──
@@ -402,41 +409,40 @@ function calcNumBlocks(start,end,dur){
   let s=toMins(start),e=toMins(end);if(e<=s)e+=1440;
   return Math.max(1,Math.round((e-s)/(dur*60)));
 }
+function getRoleDur(ev,roleKey){return(ev.roleDurHours&&ev.roleDurHours[roleKey])||ev.durHours;}
+function getRoleBlockCount(ev,roleKey){
+  const dur=getRoleDur(ev,roleKey);
+  const defaultNb=ev.endTime?calcNumBlocks(ev.startTime,ev.endTime,dur):ev.numBlocks;
+  return(ev.roleBlocks&&ev.roleBlocks[roleKey]!=null)?ev.roleBlocks[roleKey]:defaultNb;
+}
+function getRoleBlocks(ev,roleKey){return computeBlocks(ev.startTime,getRoleDur(ev,roleKey),getRoleBlockCount(ev,roleKey));}
 function buildSlots(ev){
   const slots={};
-  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
   ALL_SHIFT_TYPES.forEach(st=>{
     if(!ev.enabledRoles[st.key])return;
     const cnt=ev.roleCounts[st.key]||st.defaultCount;
-    const nb=(ev.roleBlocks&&ev.roleBlocks[st.key])||ev.numBlocks;
-    blocks.forEach((_,bi)=>{if(bi<nb)slots[`${st.key}_${bi}`]=Array(cnt).fill('');});
+    const blocks=getRoleBlocks(ev,st.key);
+    blocks.forEach((_,bi)=>{slots[`${st.key}_${bi}`]=Array(cnt).fill('');});
   });
   return slots;
 }
 function countSlots(ev){
-  // Count only valid slots (respects per-role block counts)
-  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
   let n=0;
   ALL_SHIFT_TYPES.forEach(st=>{
     if(!ev.enabledRoles[st.key])return;
     const cnt=ev.roleCounts[st.key]||st.defaultCount;
-    const roleBlocks=ev.roleBlocks&&ev.roleBlocks[st.key]!=null?ev.roleBlocks[st.key]:blocks.length;
-    for(let bi=0;bi<roleBlocks;bi++){
-      const key=`${st.key}_${bi}`;
-      const arr=ev.slots[key]||[];
-      for(let si=0;si<cnt;si++) n++;
-    }
+    const blocks=getRoleBlocks(ev,st.key);
+    for(let bi=0;bi<blocks.length;bi++){for(let si=0;si<cnt;si++)n++;}
   });
   return n;
 }
 function countFilled(ev){
-  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
   let n=0;
   ALL_SHIFT_TYPES.forEach(st=>{
     if(!ev.enabledRoles[st.key])return;
     const cnt=ev.roleCounts[st.key]||st.defaultCount;
-    const roleBlocks=ev.roleBlocks&&ev.roleBlocks[st.key]!=null?ev.roleBlocks[st.key]:blocks.length;
-    for(let bi=0;bi<roleBlocks;bi++){
+    const blocks=getRoleBlocks(ev,st.key);
+    for(let bi=0;bi<blocks.length;bi++){
       const key=`${st.key}_${bi}`;
       const arr=ev.slots[key]||[];
       for(let si=0;si<cnt;si++){if(arr[si]&&arr[si].trim()!=='')n++;}
@@ -452,10 +458,10 @@ function fmtDate(d){
 function findMyShifts(events,userName){
   const shifts=[];
   events.forEach(ev=>{
-    const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
     ALL_SHIFT_TYPES.forEach(st=>{
       if(!ev.enabledRoles[st.key])return;
       const cnt=ev.roleCounts[st.key]||st.defaultCount;
+      const blocks=getRoleBlocks(ev,st.key);
       blocks.forEach((block,bi)=>{
         const key=`${st.key}_${bi}`;
         (ev.slots[key]||[]).forEach((v,si)=>{
@@ -482,6 +488,7 @@ function dbToEvent(row, slots_rows){
     enabledRoles:row.enabled_roles||{},
     roleCounts:row.role_counts||{},
     roleBlocks:row.role_blocks||{},
+    roleDurHours:row.role_dur_hours||{},
     fixedRoles:row.fixed_roles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),
     slots,
   };
@@ -495,6 +502,7 @@ function eventToDb(ev){
     dur_hours:ev.durHours, num_blocks:ev.numBlocks,
     enabled_roles:ev.enabledRoles, role_counts:ev.roleCounts,
     role_blocks:ev.roleBlocks||{},
+    role_dur_hours:ev.roleDurHours||{},
     fixed_roles:ev.fixedRoles,
   };
 }
@@ -616,47 +624,55 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal}){
             <span className="rt-dot"></span>Schichten (Echtzeit)
           </div>
           <div className="shifts-table-wrap">
-            <table className="shifts-tbl">
-              <thead><tr>
-                <th className="rc">Schicht</th>
-                {blocks.map((b,i)=><th key={i}>{b}</th>)}
-              </tr></thead>
-              <tbody>
-                {activeRoles.map(st=>{
-                  const cnt=ev.roleCounts[st.key]||st.defaultCount;
-                  const nb=(ev.roleBlocks&&ev.roleBlocks[st.key])||ev.numBlocks;
-                  return Array.from({length:cnt},(_,si)=>(
-                    <tr key={`${st.key}-${si}`}>
-                      <td className="rn">{st.label}</td>
-                      {blocks.map((_,bi)=>{
-                        if(bi>=nb)return<td key={bi}><div className="slot unavail"><span className="slot-dash">—</span></div></td>;
-                        const key=`${st.key}_${bi}`;
-                        const arr=ev.slots[key]||[];
-                        const isSaving=saving===`${key}_${si}`;
-                        return<SlotCell key={bi} val={arr[si]??null} currentUser={currentUser} saving={isSaving}
-                          onSignup={()=>openModal(ev.id,key,si,st.label,blocks[bi])}
-                          onRemove={()=>handleRemove(key,si)}/>;
-                      })}
-                    </tr>
-                  ));
-                })}
-              </tbody>
-            </table>
+            {(()=>{
+              const groups=[];const seen={};
+              activeRoles.forEach(st=>{
+                const blks=getRoleBlocks(ev,st.key);
+                const gk=blks.join('|');
+                if(!seen[gk]){seen[gk]={blocks:blks,roles:[]};groups.push(seen[gk]);}
+                seen[gk].roles.push(st);
+              });
+              return groups.map((g,gi)=>(
+                <table key={gi} className="shifts-tbl" style={gi>0?{marginTop:12}:{}}>
+                  <thead><tr>
+                    <th className="rc">Schicht</th>
+                    {g.blocks.map((b,i)=><th key={i}>{b}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {g.roles.map(st=>{
+                      const cnt=ev.roleCounts[st.key]||st.defaultCount;
+                      return Array.from({length:cnt},(_,si)=>(
+                        <tr key={`${st.key}-${si}`}>
+                          <td className="rn">{st.label}</td>
+                          {g.blocks.map((_,bi)=>{
+                            const key=`${st.key}_${bi}`;
+                            const arr=ev.slots[key]||[];
+                            const isSaving=saving===`${key}_${si}`;
+                            return<SlotCell key={bi} val={arr[si]??null} currentUser={currentUser} saving={isSaving}
+                              onSignup={()=>openModal(ev.id,key,si,st.label,g.blocks[bi])}
+                              onRemove={()=>handleRemove(key,si)}/>;
+                          })}
+                        </tr>
+                      ));
+                    })}
+                  </tbody>
+                </table>
+              ));
+            })()}
           </div>
           <div className="shifts-mobile">
-            {blocks.map((block,bi)=>(
-              <div key={bi} className="shift-block-card">
-                <div className="shift-block-header">{block}</div>
-                {activeRoles.map(st=>{
-                  const cnt=ev.roleCounts[st.key]||st.defaultCount;
-                  const nb=(ev.roleBlocks&&ev.roleBlocks[st.key])||ev.numBlocks;
-                  if(bi>=nb)return null;
-                  return Array.from({length:cnt},(_,si)=>{
+            {activeRoles.map(st=>{
+              const blks=getRoleBlocks(ev,st.key);
+              const cnt=ev.roleCounts[st.key]||st.defaultCount;
+              return blks.map((block,bi)=>(
+                <div key={`${st.key}-${bi}`} className="shift-block-card">
+                  <div className="shift-block-header">{st.label} · {block}</div>
+                  {Array.from({length:cnt},(_,si)=>{
                     const key=`${st.key}_${bi}`;
                     const arr=ev.slots[key]||[];
                     return(
-                      <div key={`${st.key}-${si}`} className="shift-row-mobile">
-                        <span className="shift-role-lbl">{st.label}</span>
+                      <div key={si} className="shift-row-mobile">
+                        <span className="shift-role-lbl">Platz {si+1}</span>
                         <div className="shift-slot-mob">
                           <SlotMob val={arr[si]??null} currentUser={currentUser}
                             onSignup={()=>openModal(ev.id,key,si,st.label,block)}
@@ -664,10 +680,10 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal}){
                         </div>
                       </div>
                     );
-                  });
-                })}
-              </div>
-            ))}
+                  })}
+                </div>
+              ));
+            })}
           </div>
         </div>
       </div>}
@@ -687,6 +703,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   const[roleCounts,setRoleCounts]=useState(existing?.roleCounts||{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1});
   // Per-role block counts (0 = use global numBlocks)
   const[roleBlocks,setRoleBlocks]=useState(existing?.roleBlocks||{});
+  const[roleDurHours,setRoleDurHours]=useState(existing?.roleDurHours||{});
   const[saving,setSaving]=useState(false);
   const[err,setErr]=useState('');
 
@@ -694,7 +711,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   function handleStart(v){setStartTimeS(v);if(endTime)recalc(v,endTime,durHours);}
   function handleEnd(v){setEndTimeS(v);if(startTime)recalc(startTime,v,durHours);}
   function handleDur(v){setDurHoursS(v);if(startTime&&endTime)recalc(startTime,endTime,v);}
-  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);recalc(t.startTime,t.endTime,t.durHours);}
+  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);setRoleDurHours(t.roleDurHours||{});recalc(t.startTime,t.endTime,t.durHours);}
   function toggleRole(k){setEnabledRoles(r=>({...r,[k]:!r[k]}));}
   function changeCount(k,d){setRoleCounts(r=>({...r,[k]:Math.max(1,Math.min(4,(r[k]||1)+d))}));}
   function changeRoleBlocks(k,d){setRoleBlocks(r=>({...r,[k]:Math.max(0,Math.min(numBlocks,(r[k]||numBlocks)+d))}));}
@@ -705,7 +722,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   async function doSave(){
     if(!name.trim()||!date){setErr('Name und Datum sind erforderlich.');return;}
     setSaving(true);setErr('');
-    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,
+    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,roleDurHours,
       fixedRoles:existing?.fixedRoles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),slots:{}};
     await onSave(ev);
     setSaving(false);
@@ -766,6 +783,10 @@ function AdminCreateEvent({onSave,onCancel,existing}){
                   <span className="role-count-num" style={{fontSize:'0.58rem',color:(roleBlocks[st.key]&&roleBlocks[st.key]<numBlocks)?'var(--gold)':'var(--dim)'}}>{roleBlocks[st.key]||numBlocks}</span>
                   <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,+1)}>+</button>
                 </div>
+                <div style={{display:'flex',alignItems:'center',gap:3,marginTop:2}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Dauer</span>
+                  {DUR_OPTIONS.map(d=><button key={d.hours} className="role-count-btn" style={{width:'auto',padding:'0 4px',fontSize:'0.48rem',background:(roleDurHours[st.key]||durHours)===d.hours?'rgba(255,255,255,.1)':'transparent',color:(roleDurHours[st.key]||durHours)===d.hours?'var(--text)':'var(--muted)'}} onClick={()=>setRoleDurHours(r=>({...r,[st.key]:d.hours}))}>{d.label}</button>)}
+                </div>
               </div>
             )}
           </div>
@@ -782,17 +803,28 @@ function AdminCreateEvent({onSave,onCancel,existing}){
 
 // ── EXPORT PDF ──
 function exportPDF(ev){
-  const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
   const activeRoles=ALL_SHIFT_TYPES.filter(st=>ev.enabledRoles[st.key]);
   const{full}=fmtDate(ev.date);
-  let rows='';
+  // Group roles by their block set
+  const groups=[];const seen={};
   activeRoles.forEach(st=>{
-    const cnt=ev.roleCounts[st.key]||st.defaultCount;
-    for(let si=0;si<cnt;si++){
-      rows+=`<tr><td style="font-family:monospace;font-size:11px;color:#666;padding:7px 12px;border:1px solid #ddd;white-space:nowrap;background:#f9f9f9">${st.label}</td>
-      ${blocks.map((_,bi)=>{const val=(ev.slots[`${st.key}_${bi}`]||[])[si]??null;
-        return`<td style="padding:7px 12px;border:1px solid #ddd;text-align:center;font-size:13px;${val===null?'color:#ccc;background:#f5f5f5':val?'color:#2d7a35;font-weight:600':'color:#bbb'}">${val===null?'—':val||'·'}</td>`;}).join('')}</tr>`;
-    }
+    const blks=getRoleBlocks(ev,st.key);
+    const gk=blks.join('|');
+    if(!seen[gk]){seen[gk]={blocks:blks,roles:[]};groups.push(seen[gk]);}
+    seen[gk].roles.push(st);
+  });
+  let tables='';
+  groups.forEach(g=>{
+    let rows='';
+    g.roles.forEach(st=>{
+      const cnt=ev.roleCounts[st.key]||st.defaultCount;
+      for(let si=0;si<cnt;si++){
+        rows+=`<tr><td style="font-family:monospace;font-size:11px;color:#666;padding:7px 12px;border:1px solid #ddd;white-space:nowrap;background:#f9f9f9">${st.label}</td>
+        ${g.blocks.map((_,bi)=>{const val=(ev.slots[`${st.key}_${bi}`]||[])[si]??null;
+          return`<td style="padding:7px 12px;border:1px solid #ddd;text-align:center;font-size:13px;${val===null?'color:#ccc;background:#f5f5f5':val?'color:#2d7a35;font-weight:600':'color:#bbb'}">${val===null?'—':val||'·'}</td>`;}).join('')}</tr>`;
+      }
+    });
+    tables+=`<table style="margin-bottom:16px"><thead><tr><th class="rc">Schicht</th>${g.blocks.map(b=>`<th>${b}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`;
   });
   const respRows=FIXED_ROLES.map(r=>`<tr><td style="font-family:monospace;font-size:11px;color:#666;padding:5px 12px;width:180px">${r}</td><td style="padding:5px 12px;font-size:13px;font-weight:${ev.fixedRoles[r]?600:400};color:${ev.fixedRoles[r]?'#111':'#bbb'}">${ev.fixedRoles[r]||'—'}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Spinnplan – ${ev.name}</title>
@@ -803,7 +835,7 @@ function exportPDF(ev){
   table{width:100%;border-collapse:collapse;}th{font-family:monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;padding:8px 12px;background:#111;color:#eee;text-align:center;}th.rc{text-align:left;}</style></head>
   <body><h1>${ev.name}</h1><div class="sub">Spinnplan · ${full} · ${ev.startTime} – ${ev.endTime}</div>
   <h2>Verantwortlichkeiten</h2><table><tbody>${respRows}</tbody></table>
-  <h2>Schichten</h2><table><thead><tr><th class="rc">Schicht</th>${blocks.map(b=>`<th>${b}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+  <h2>Schichten</h2>${tables}
   <div style="margin-top:32px;font-family:monospace;font-size:10px;color:#ccc;text-align:right;">Spinnplan · ${new Date().toLocaleDateString('de-CH')}</div></body></html>`;
   const win=window.open('','_blank');
   win.document.write(html+'<div style="position:fixed;top:16px;right:16px;"><button onclick="window.close()" style="font-family:monospace;font-size:11px;padding:8px 16px;background:#111;color:#fff;border:1px solid #333;cursor:pointer;letter-spacing:0.1em;text-transform:uppercase;">✕ Schliessen</button></div>');
@@ -2005,9 +2037,9 @@ function App(){
     // Check: same name already in a DIFFERENT role with OVERLAPPING time
     const ev=events.find(e=>e.id===modal.evId);
     if(ev){
-      const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
       const currentRole=modal.key.split('_')[0];
       const currentBlockIdx=parseInt(modal.key.split('_')[1]);
+      const blocks=getRoleBlocks(ev,currentRole);
       const currentTime=blocks[currentBlockIdx]; // e.g. "21:00 – 22:30"
       function parseBlock(t){const[s,e]=t.split(' – ');return[toMins(s),toMins(e)];}
       const[cs,ce]=parseBlock(currentTime);
@@ -2015,7 +2047,8 @@ function App(){
         const role=key.split('_')[0];
         if(role===currentRole)return false; // same role is fine
         const bi=parseInt(key.split('_')[1]);
-        const blockTime=blocks[bi];
+        const otherBlocks=getRoleBlocks(ev,role);
+        const blockTime=otherBlocks[bi];
         if(!blockTime)return false;
         const[bs,be]=parseBlock(blockTime);
         // Check overlap: two blocks overlap if one starts before the other ends
