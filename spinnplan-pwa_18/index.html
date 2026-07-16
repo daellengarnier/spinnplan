@@ -805,6 +805,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
 
   const blocks=computeBlocks(startTime,durHours,numBlocks);
   const computedEnd=blocks.length>0?blocks[blocks.length-1].split(' – ')[1]:'';
+  const isHausfestForm=HAUSFEST_ROLES.some(k=>enabledRoles[k]);
 
   async function doSave(){
     if(!name.trim()||!date){setErr('Name und Datum sind erforderlich.');return;}
@@ -837,7 +838,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
         <div className="f-group"><label className="f-label">Startzeit</label><input className="f-input" type="time" value={startTime} onChange={e=>handleStart(e.target.value)}/></div>
         <div className="f-group"><label className="f-label">Endzeit</label><input className="f-input" type="time" value={endTime} onChange={e=>handleEnd(e.target.value)}/></div>
       </div>
-      <div className="form-grid" style={{marginBottom:8}}>
+      {!isHausfestForm&&<><div className="form-grid" style={{marginBottom:8}}>
         <div className="f-group">
           <label className="f-label">Schichtdauer</label>
           <div className="dur-pills">{DUR_OPTIONS.map(d=><button key={d.hours} className={`dur-pill${durHours===d.hours?' active':''}`} onClick={()=>handleDur(d.hours)}>{d.label}</button>)}</div>
@@ -850,7 +851,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
       <div className="shift-preview">
         <div className="preview-label">Vorschau</div>
         <div className="preview-blocks">{blocks.map((b,i)=><span key={i} className="preview-block">{b}</span>)}</div>
-      </div>
+      </div></>}
       <div className="sec-div">Schicht-Rollen</div>
       <div className="roles-check-grid">
         {ALL_SHIFT_TYPES.map(st=>(
@@ -864,12 +865,12 @@ function AdminCreateEvent({onSave,onCancel,existing}){
                   <span className="role-count-num">{roleCounts[st.key]||st.defaultCount}</span>
                   <button className="role-count-btn" onClick={()=>changeCount(st.key,+1)}>+</button>
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
+                {!isHausfestForm&&<div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
                   <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Blöcke</span>
                   <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,-1)}>−</button>
                   <span className="role-count-num" style={{fontSize:'0.58rem',color:(roleBlocks[st.key]&&roleBlocks[st.key]<numBlocks)?'var(--gold)':'var(--dim)'}}>{roleBlocks[st.key]||numBlocks}</span>
                   <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,+1)}>+</button>
-                </div>
+                </div>}
                 <div style={{display:'flex',alignItems:'center',gap:3,marginTop:2}}>
                   <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Dauer</span>
                   {DUR_OPTIONS.map(d=><button key={d.hours} className="role-count-btn" style={{width:'auto',padding:'0 4px',fontSize:'0.48rem',background:(roleDurHours[st.key]||durHours)===d.hours?'rgba(255,255,255,.1)':'transparent',color:(roleDurHours[st.key]||durHours)===d.hours?'var(--text)':'var(--muted)'}} onClick={()=>setRoleDurHours(r=>({...r,[st.key]:d.hours}))}>{d.label}</button>)}
