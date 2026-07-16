@@ -637,8 +637,8 @@ function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
 }
 
 // ── EVENT CARD ──
-function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal}){
-  const[open,setOpen]=useState(false);
+function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal,defaultOpen}){
+  const[open,setOpen]=useState(defaultOpen||false);
   const[saving,setSaving]=useState(null);
   const blocks=computeBlocks(ev.startTime,ev.durHours,ev.numBlocks);
   const{day,mon}=fmtDate(ev.date);
@@ -937,7 +937,7 @@ function exportPDF(ev){
 }
 
 // ── ADMIN PANEL ──
-function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToast,loadEvents,openModal,addNotif}){
+function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToast,loadEvents,openModal,addNotif,deepLinkEventId}){
   const[tab,setTab]=useState('events');
   const[editing,setEditing]=useState(null);
   const[sendingReminder,setSendingReminder]=useState(null);
@@ -1038,8 +1038,9 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
             <div className="events-grid">
               {upcoming.map(ev=>(
                 <div key={ev.id}>
-                  <EventCard ev={ev} currentUser={profile} isAdmin={true} onSlotChange={onSlotChange} openModal={openModal}/>
+                  <EventCard ev={ev} currentUser={profile} isAdmin={true} onSlotChange={onSlotChange} openModal={openModal} defaultOpen={ev.id===deepLinkEventId}/>
                   <div className="ev-admin-actions">
+                    <button className="btn sm" onClick={()=>{navigator.clipboard.writeText(`${window.location.origin}?event=${ev.id}`);showToast('Link kopiert!','green');}}>🔗 Link</button>
                     {(countSlots(ev)-countFilled(ev))>0&&<button className="btn sm" style={{borderColor:'var(--gold)',color:'var(--gold)'}} onClick={()=>sendShiftReminder(ev)} disabled={sendingReminder===ev.id}>{sendingReminder===ev.id?'Senden…':'📢 Schichten gesucht'}</button>}
                     <button className="btn sm green" onClick={()=>exportPDF(ev)}>↓ PDF</button>
                     <button className="btn sm" onClick={()=>setEditing(ev)}>✎ Bearbeiten</button>
@@ -1185,7 +1186,7 @@ function MyShiftsView({events,profile,onSlotChange,showToast}){
 }
 
 // ── USER VIEW ──
-function UserView({events,profile,setProfile,onSlotChange,openModal,showToast}){
+function UserView({events,profile,setProfile,onSlotChange,openModal,showToast,deepLinkEventId}){
   const[tab,setTab]=useState('events');
   const myShifts=useMemo(()=>findMyShifts(events,profile.name),[events,profile.name]);
 
@@ -1206,7 +1207,7 @@ function UserView({events,profile,setProfile,onSlotChange,openModal,showToast}){
             {upcoming.length===0&&<div className="empty-state"><div className="big">Keine Anlässe</div><p>Noch keine Anlässe verfügbar.</p></div>}
             <div className="events-grid">
               {upcoming.map(ev=>(
-                <EventCard key={ev.id} ev={ev} currentUser={profile} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal}/>
+                <EventCard key={ev.id} ev={ev} currentUser={profile} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal} defaultOpen={ev.id===deepLinkEventId}/>
               ))}
             </div></>})()}
           </>
@@ -1738,7 +1739,7 @@ function GuidesPage({isAdmin,showToast}){
 }
 
 // ── GUEST VIEW ──
-function GuestView({events,guestName,onSlotChange,openModal,showToast}){
+function GuestView({events,guestName,onSlotChange,openModal,showToast,deepLinkEventId}){
   const currentUser={name:guestName,id:null,isAdmin:false,isGuest:true};
   const upcoming=events.filter(e=>e.date>=new Date().toISOString().split('T')[0]);
   return(
@@ -1750,7 +1751,7 @@ function GuestView({events,guestName,onSlotChange,openModal,showToast}){
       </div>
       {upcoming.length===0
         ?<div className="empty-state"><div className="big">Keine Anlässe</div></div>
-        :upcoming.map(ev=><EventCard key={ev.id} ev={ev} currentUser={currentUser} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal}/>)
+        :upcoming.map(ev=><EventCard key={ev.id} ev={ev} currentUser={currentUser} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal} defaultOpen={ev.id===deepLinkEventId}/>)
       }
     </div>
   );
@@ -1969,6 +1970,7 @@ function App(){
   const[events,setEvents]=useState([]);
   const[loading,setLoading]=useState(true);
   const[modal,setModal]=useState(null);
+  const[deepLinkEventId]=useState(()=>new URLSearchParams(window.location.search).get('event'));
   const[menuOpen,setMenuOpen]=useState(false);
   const[menuTab,setMenuTab]=useState(null);
   const[toast,setToast]=useState(null);
@@ -2261,10 +2263,10 @@ function App(){
         </div>
       )}
       {!menuTab&&(guestName
-        ?<GuestView events={events} guestName={guestName} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast}/>
+        ?<GuestView events={events} guestName={guestName} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast} deepLinkEventId={deepLinkEventId}/>
         :profile.is_admin
-          ?<AdminPanel events={events} profile={profile} setProfile={p=>setProfile(p)} onSlotChange={onSlotChange} showToast={showToast} loadEvents={loadEvents} openModal={openModal} addNotif={addNotif}/>
-          :<UserView events={events} profile={profile} setProfile={p=>{setProfile(p);}} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast}/>
+          ?<AdminPanel events={events} profile={profile} setProfile={p=>setProfile(p)} onSlotChange={onSlotChange} showToast={showToast} loadEvents={loadEvents} openModal={openModal} addNotif={addNotif} deepLinkEventId={deepLinkEventId}/>
+          :<UserView events={events} profile={profile} setProfile={p=>{setProfile(p);}} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast} deepLinkEventId={deepLinkEventId}/>
       )}
 
       <SignupModal modal={modal} profile={guestName?{name:guestName,isGuest:true}:profile} onConfirm={confirmSignup} onClose={()=>setModal(null)}/>
