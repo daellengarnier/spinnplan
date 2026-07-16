@@ -553,6 +553,81 @@ function SlotMob({val,onSignup,onRemove,currentUser}){
   return<span className="slot-mob empty" onClick={onSignup}>+ Eintragen</span>;
 }
 
+// ── HAUSFEST GROUPED VIEW ──
+const HAUSFEST_ROLES=['BarSpinnerei','BarOstblock','CocktailDreiecksbar','BarGarten','SnackbarKleemex'];
+const ROLE_GROUPS=[
+  {key:'einlass',label:'Einlass',icon:'🚪',roles:['Einlass']},
+  {key:'sicherheit',label:'Sicherheit',icon:'🛡️',roles:['Sicherheit']},
+  {key:'bars',label:'Bars',icon:'🍺',roles:['Bar','BarSpinnerei','BarOstblock','CocktailDreiecksbar','BarGarten']},
+  {key:'snacks',label:'Snackbar',icon:'🍕',roles:['SnackbarKleemex']},
+  {key:'andere',label:'Weitere',icon:'⚡',roles:['Garderobe','Springer']},
+];
+
+function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
+  const[openGroup,setOpenGroup]=useState(null);
+  const activeRoles=ALL_SHIFT_TYPES.filter(st=>ev.enabledRoles[st.key]);
+  const activeGroups=ROLE_GROUPS.map(g=>{
+    const roles=g.roles.map(k=>activeRoles.find(st=>st.key===k)).filter(Boolean);
+    if(roles.length===0)return null;
+    let total=0,filled=0;
+    roles.forEach(st=>{
+      const cnt=ev.roleCounts[st.key]||st.defaultCount;
+      const blks=getRoleBlocks(ev,st.key);
+      blks.forEach((_,bi)=>{const arr=ev.slots[`${st.key}_${bi}`]||[];
+        for(let si=0;si<cnt;si++){total++;if(arr[si]&&arr[si].trim())filled++;}});
+    });
+    return{...g,roles,total,filled,open:total-filled};
+  }).filter(Boolean);
+
+  return(
+    <div style={{display:'flex',flexDirection:'column',gap:2}}>
+      {activeGroups.map(g=>(
+        <div key={g.key} style={{border:'1px solid var(--border)',overflow:'hidden'}}>
+          <button onClick={()=>setOpenGroup(openGroup===g.key?null:g.key)} style={{width:'100%',background:openGroup===g.key?'#1a1a1a':'var(--surface)',border:'none',padding:'14px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',gap:10}}>
+            <span style={{display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:'1.1rem'}}>{g.icon}</span>
+              <span style={{fontFamily:'var(--cond)',fontSize:'1.1rem',fontWeight:700,textTransform:'uppercase',color:'#fff',letterSpacing:'0.06em'}}>{g.label}</span>
+              {g.roles.length>1&&<span style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)'}}>({g.roles.length})</span>}
+            </span>
+            <span style={{display:'flex',alignItems:'center',gap:8}}>
+              <span style={{fontFamily:'var(--mono)',fontSize:'0.52rem',letterSpacing:'0.06em',padding:'3px 8px',border:'1px solid',borderColor:g.open===0?'var(--green-border)':'#7a4a20',color:g.open===0?'var(--green)':'#c9a84c'}}>{g.open===0?'✓ Voll':`${g.open} offen`}</span>
+              <span style={{fontFamily:'var(--mono)',fontSize:'0.6rem',color:'var(--muted)',transition:'transform 0.2s',display:'inline-block',transform:openGroup===g.key?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
+            </span>
+          </button>
+          {openGroup===g.key&&<div style={{borderTop:'1px solid var(--border)',background:'#0d0d0d'}}>
+            {g.roles.map(st=>{
+              const blks=getRoleBlocks(ev,st.key);
+              const cnt=ev.roleCounts[st.key]||st.defaultCount;
+              return(
+                <div key={st.key} style={{borderBottom:'1px solid var(--border)'}}>
+                  {g.roles.length>1&&<div style={{fontFamily:'var(--mono)',fontSize:'0.54rem',letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--gold)',padding:'10px 14px 4px',fontWeight:700}}>{st.label}</div>}
+                  {blks.map((block,bi)=>{
+                    const key=`${st.key}_${bi}`;
+                    const arr=ev.slots[key]||[];
+                    return(
+                      <div key={bi} style={{padding:'0 14px'}}>
+                        <div style={{fontFamily:'var(--mono)',fontSize:'0.5rem',color:'var(--muted)',padding:'8px 0 4px',letterSpacing:'0.08em'}}>{block}</div>
+                        <div style={{display:'flex',gap:6,paddingBottom:8,flexWrap:'wrap'}}>
+                          {Array.from({length:cnt},(_,si)=>{
+                            const val=arr[si]??null;
+                            const isMe=val&&currentUser&&val===currentUser.name;
+                            if(val)return<span key={si} className={`slot-mob ${isMe?'mine':'filled'}`} onClick={isMe||currentUser?.isAdmin?()=>handleRemove(key,si):undefined} style={{minWidth:0,flex:'1 1 auto',justifyContent:'center'}}>{val}{(isMe||currentUser?.isAdmin)&&<span style={{fontSize:'0.6rem',opacity:.6,marginLeft:4}}>✕</span>}</span>;
+                            return<span key={si} className="slot-mob empty" onClick={()=>openModal(ev.id,key,si,st.label,block)} style={{minWidth:0,flex:'1 1 auto',justifyContent:'center'}}>+ Eintragen</span>;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── EVENT CARD ──
 function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal}){
   const[open,setOpen]=useState(false);
@@ -563,6 +638,7 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal}){
   const pct=total>0?Math.round(filled/total*100):0;
   const openSlots=total-filled;
   const activeRoles=ALL_SHIFT_TYPES.filter(st=>ev.enabledRoles[st.key]);
+  const isHausfest=HAUSFEST_ROLES.some(k=>ev.enabledRoles[k]);
 
   async function handleSignup(key,si){
     if(!currentUser)return;
@@ -622,7 +698,9 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal}){
           <div className="sec-label">
             <span className="rt-dot"></span>Schichten (Echtzeit)
           </div>
-          <div className="shifts-table-wrap">
+          {isHausfest
+            ?<HausfestShifts ev={ev} currentUser={currentUser} saving={saving} openModal={openModal} handleRemove={handleRemove}/>
+            :<><div className="shifts-table-wrap">
             {(()=>{
               const groups=[];const seen={};
               activeRoles.forEach(st=>{
@@ -683,7 +761,7 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal}){
                 </div>
               ));
             })}
-          </div>
+          </div></>}
         </div>
       </div>}
     </div>
