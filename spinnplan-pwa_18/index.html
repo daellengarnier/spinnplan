@@ -410,10 +410,12 @@ function calcNumBlocks(start,end,dur){
 }
 function getRoleDur(ev,roleKey){return(ev.roleDurHours&&ev.roleDurHours[roleKey])||ev.durHours;}
 function getRoleStart(ev,roleKey){return(ev.roleStartTimes&&ev.roleStartTimes[roleKey])||ev.startTime;}
+function getRoleEnd(ev,roleKey){return(ev.roleEndTimes&&ev.roleEndTimes[roleKey])||ev.endTime;}
 function getRoleBlockCount(ev,roleKey){
   const dur=getRoleDur(ev,roleKey);
   const start=getRoleStart(ev,roleKey);
-  const defaultNb=ev.endTime?calcNumBlocks(start,ev.endTime,dur):ev.numBlocks;
+  const end=getRoleEnd(ev,roleKey);
+  const defaultNb=end?calcNumBlocks(start,end,dur):ev.numBlocks;
   return(ev.roleBlocks&&ev.roleBlocks[roleKey]!=null)?ev.roleBlocks[roleKey]:defaultNb;
 }
 function getRoleBlocks(ev,roleKey){return computeBlocks(getRoleStart(ev,roleKey),getRoleDur(ev,roleKey),getRoleBlockCount(ev,roleKey));}
@@ -491,6 +493,7 @@ function dbToEvent(row, slots_rows){
     roleBlocks:row.role_blocks||{},
     roleDurHours:row.role_dur_hours||{},
     roleStartTimes:row.role_start_times||{},
+    roleEndTimes:row.role_end_times||{},
     fixedRoles:row.fixed_roles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),
     slots,
   };
@@ -506,6 +509,7 @@ function eventToDb(ev){
     role_blocks:ev.roleBlocks||{},
     role_dur_hours:ev.roleDurHours||{},
     role_start_times:ev.roleStartTimes||{},
+    role_end_times:ev.roleEndTimes||{},
     fixed_roles:ev.fixedRoles,
   };
 }
@@ -786,6 +790,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   const[roleBlocks,setRoleBlocks]=useState(existing?.roleBlocks||{});
   const[roleDurHours,setRoleDurHours]=useState(existing?.roleDurHours||{});
   const[roleStartTimes,setRoleStartTimes]=useState(existing?.roleStartTimes||{});
+  const[roleEndTimes,setRoleEndTimes]=useState(existing?.roleEndTimes||{});
   const[saving,setSaving]=useState(false);
   const[err,setErr]=useState('');
 
@@ -793,7 +798,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   function handleStart(v){setStartTimeS(v);if(endTime)recalc(v,endTime,durHours);}
   function handleEnd(v){setEndTimeS(v);if(startTime)recalc(startTime,v,durHours);}
   function handleDur(v){setDurHoursS(v);if(startTime&&endTime)recalc(startTime,endTime,v);}
-  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);setRoleDurHours(t.roleDurHours||{});setRoleStartTimes(t.roleStartTimes||{});recalc(t.startTime,t.endTime,t.durHours);}
+  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);setRoleDurHours(t.roleDurHours||{});setRoleStartTimes(t.roleStartTimes||{});setRoleEndTimes(t.roleEndTimes||{});recalc(t.startTime,t.endTime,t.durHours);}
   function toggleRole(k){setEnabledRoles(r=>({...r,[k]:!r[k]}));}
   function changeCount(k,d){setRoleCounts(r=>({...r,[k]:Math.max(1,Math.min(4,(r[k]||1)+d))}));}
   function changeRoleBlocks(k,d){setRoleBlocks(r=>({...r,[k]:Math.max(0,Math.min(numBlocks,(r[k]||numBlocks)+d))}));}
@@ -804,7 +809,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   async function doSave(){
     if(!name.trim()||!date){setErr('Name und Datum sind erforderlich.');return;}
     setSaving(true);setErr('');
-    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,roleDurHours,roleStartTimes,
+    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,roleDurHours,roleStartTimes,roleEndTimes,
       fixedRoles:existing?.fixedRoles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),slots:{}};
     await onSave(ev);
     setSaving(false);
@@ -872,6 +877,8 @@ function AdminCreateEvent({onSave,onCancel,existing}){
                 <div style={{display:'flex',alignItems:'center',gap:3,marginTop:2}}>
                   <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Start</span>
                   <input type="time" value={roleStartTimes[st.key]||startTime} onChange={e=>setRoleStartTimes(r=>({...r,[st.key]:e.target.value}))} style={{fontFamily:'var(--mono)',fontSize:'0.48rem',padding:'1px 4px',background:'var(--surface2)',border:'1px solid var(--border2)',color:'var(--text)',width:70}}/>
+                  <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Ende</span>
+                  <input type="time" value={roleEndTimes[st.key]||endTime} onChange={e=>setRoleEndTimes(r=>({...r,[st.key]:e.target.value}))} style={{fontFamily:'var(--mono)',fontSize:'0.48rem',padding:'1px 4px',background:'var(--surface2)',border:'1px solid var(--border2)',color:'var(--text)',width:70}}/>
                 </div>
               </div>
             )}

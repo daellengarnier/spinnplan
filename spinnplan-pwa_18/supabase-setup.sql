@@ -36,6 +36,7 @@ create table public.events (
   role_blocks jsonb not null default '{}',
   role_dur_hours jsonb not null default '{}',
   role_start_times jsonb not null default '{}',
+  role_end_times jsonb not null default '{}',
   fixed_roles jsonb not null default '{}',
   created_by uuid references public.profiles(id),
   created_at timestamptz default now()
@@ -162,3 +163,4 @@ alter publication supabase_realtime add table public.slots;
 -- -- Per-role shift duration and start times
 -- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS role_dur_hours jsonb not null default '{}';
 -- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS role_start_times jsonb not null default '{}';
+-- ALTER TABLE public.events ADD COLUMN IF NOT EXISTS role_end_times jsonb not null default '{}';
