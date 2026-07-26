@@ -562,6 +562,38 @@ function SlotCell({val,onSignup,onRemove,currentUser,saving}){
   return<td><div className={`slot empty${saving?' saving':''}`} onClick={onSignup}><span className="slot-hint">+ Eintragen</span></div></td>;
 }
 
+// ── PUSH PERMISSION BANNER ──
+function PushBanner(){
+  const[show,setShow]=useState(false);
+  const[dismissed,setDismissed]=useState(()=>localStorage.getItem('spinnplan_push_dismissed')==='1');
+  useEffect(()=>{
+    if(dismissed)return;
+    if(!('Notification' in window)||!('PushManager' in window))return;
+    if(Notification.permission==='default')setShow(true);
+  },[]);
+  if(!show)return null;
+  async function accept(){
+    try{
+      const reg=await navigator.serviceWorker.ready;
+      await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(VAPID_PUBLIC_KEY)});
+      setShow(false);
+    }catch(e){console.log('Push subscribe error:',e);setShow(false);}
+  }
+  function dismiss(){setShow(false);setDismissed(true);localStorage.setItem('spinnplan_push_dismissed','1');}
+  return(
+    <div style={{background:'#1a2040',border:'1px solid var(--blue-border)',padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:16,flexWrap:'wrap'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,flex:1,minWidth:0}}>
+        <span style={{fontSize:'1.1rem',flexShrink:0}}>🔔</span>
+        <span style={{fontFamily:'var(--mono)',fontSize:'0.58rem',color:'var(--blue)',lineHeight:1.5}}>Push-Benachrichtigungen aktivieren? So verpasst du keine neuen Anlässe und Schicht-Erinnerungen.</span>
+      </div>
+      <div style={{display:'flex',gap:8,flexShrink:0}}>
+        <button className="btn sm white" onClick={accept}>Aktivieren</button>
+        <button onClick={dismiss} style={{background:'transparent',border:'none',color:'var(--muted)',cursor:'pointer',fontSize:'1rem',padding:'0 4px',lineHeight:1}}>✕</button>
+      </div>
+    </div>
+  );
+}
+
 // ── WELCOME BANNER ──
 function WelcomeBanner(){
   const[welcomed,setWelcomed]=useState(()=>localStorage.getItem('spinnplan_welcomed')==='1');
@@ -1152,6 +1184,7 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
         {tab==='create'&&<AdminCreateEvent onSave={saveEvent}/>}
         {tab==='events'&&(
           <>
+            <PushBanner/>
             <WelcomeBanner/>
             <div className="page-top">
               <div><div className="page-eyebrow">Admin</div><h2 className="page-title">Anlässe</h2></div>
@@ -1324,6 +1357,7 @@ function UserView({events,profile,setProfile,onSlotChange,openModal,showToast,de
       <div className="main">
         {tab==='events'&&(
           <>
+            <PushBanner/>
             <WelcomeBanner/>
             {(()=>{const upcoming=events.filter(ev=>!isEventPast(ev));
             return<>
