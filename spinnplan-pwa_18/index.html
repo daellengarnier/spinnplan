@@ -585,7 +585,8 @@ function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
   const[openGroup,setOpenGroup]=useState(null);
   const activeRoles=getEventRoles(ev).filter(st=>ev.enabledRoles[st.key]);
   const activeGroups=ROLE_GROUPS.map(g=>{
-    const roles=g.roles.map(k=>activeRoles.find(st=>st.key===k)).filter(Boolean);
+    const roles=g.roles.map(k=>activeRoles.find(st=>st.key===k)).filter(Boolean)
+      .sort((a,b)=>toMins(getRoleStart(ev,a.key))-toMins(getRoleStart(ev,b.key)));
     if(roles.length===0)return null;
     let total=0,filled=0;
     roles.forEach(st=>{
@@ -616,7 +617,7 @@ function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
           <button onClick={()=>setOpenGroup(openGroup===g.key?null:g.key)} style={{width:'100%',background:openGroup===g.key?'#1a1a1a':'var(--surface)',border:'none',padding:'14px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',gap:10}}>
             <span style={{display:'flex',alignItems:'center',gap:10}}>
               <span style={{fontSize:'1.1rem'}}>{g.icon}</span>
-              <span style={{fontFamily:'var(--cond)',fontSize:'1.1rem',fontWeight:700,textTransform:'uppercase',color:'#fff',letterSpacing:'0.06em'}}>{g.label}</span>
+              <span style={{fontFamily:'var(--cond)',fontSize:'1.1rem',fontWeight:700,textTransform:'uppercase',color:'#fff',letterSpacing:'0.06em'}}>{g.roles.length===1?getRoleLabel(ev,g.roles[0]):g.label}</span>
               {g.roles.length>1&&<span style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)'}}>({g.roles.length})</span>}
             </span>
             <span style={{display:'flex',alignItems:'center',gap:8}}>
