@@ -559,6 +559,55 @@ function SlotCell({val,onSignup,onRemove,currentUser,saving}){
   return<td><div className={`slot empty${saving?' saving':''}`} onClick={onSignup}><span className="slot-hint">+ Eintragen</span></div></td>;
 }
 
+// ── WELCOME BANNER ──
+function WelcomeBanner(){
+  const[welcomed,setWelcomed]=useState(()=>localStorage.getItem('spinnplan_welcomed')==='1');
+  const[showInstall,setShowInstall]=useState(false);
+  const isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+  if(welcomed)return null;
+  function dismiss(){setWelcomed(true);localStorage.setItem('spinnplan_welcomed','1');}
+  return(
+    <>
+      <div style={{background:'var(--surface)',border:'1px solid var(--border)',padding:'20px 22px',marginBottom:20}}>
+        <div style={{fontFamily:'var(--cond)',fontSize:'1.3rem',fontWeight:800,textTransform:'uppercase',marginBottom:6}}>Willkommen bei Spinnplan!</div>
+        <div style={{fontFamily:'var(--mono)',fontSize:'0.6rem',color:'var(--dim)',lineHeight:1.7,marginBottom:12}}>
+          Die Schicht-App der Kulturspinnerei Bern. Danke, dass du eine Schicht machst!
+        </div>
+        {!isStandalone&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+          <button className="btn sm white" onClick={()=>setShowInstall(true)}>📱 Als App installieren</button>
+          <span style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)'}}>Empfohlen</span>
+        </div>}
+        <button style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)',background:'transparent',border:'none',cursor:'pointer',textDecoration:'underline',padding:0}} onClick={dismiss}>Nicht mehr anzeigen</button>
+      </div>
+      {showInstall&&<div className="overlay open" onClick={()=>setShowInstall(false)}>
+        <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:400}}>
+          <div className="modal-eye">Empfohlen</div>
+          <div className="modal-h">App installieren</div>
+          <div style={{fontFamily:'var(--mono)',fontSize:'0.6rem',color:'var(--dim)',lineHeight:1.8}}>
+            {/iphone|ipad|ipod/i.test(navigator.userAgent)
+              ?<><strong>iPhone / iPad (Safari):</strong><br/>
+                1. Tippe unten auf <strong>⬆ Teilen</strong><br/>
+                2. Scrolle und wähle <strong>«Zum Home-Bildschirm»</strong><br/>
+                3. Tippe auf <strong>«Hinzufügen»</strong><br/><br/>
+                Die App erscheint als Icon auf deinem Homescreen.</>
+              :<><strong>Android (Chrome):</strong><br/>
+                1. Tippe oben rechts auf <strong>⋮ Menü</strong><br/>
+                2. Wähle <strong>«Zum Startbildschirm hinzufügen»</strong><br/>
+                3. Bestätige mit <strong>«Hinzufügen»</strong><br/><br/>
+                <strong>Desktop (Chrome / Edge):</strong><br/>
+                1. Klicke in der Adressleiste auf das <strong>Install-Symbol</strong> (⊕)<br/>
+                2. Bestätige mit <strong>«Installieren»</strong></>
+            }
+          </div>
+          <div className="modal-acts" style={{marginTop:16}}>
+            <button className="btn white" onClick={()=>setShowInstall(false)}>Verstanden</button>
+          </div>
+        </div>
+      </div>}
+    </>
+  );
+}
+
 // ── SLOT MOBILE ──
 function SlotMob({val,onSignup,onRemove,currentUser}){
   if(val===null)return<span className="slot-mob unavail">—</span>;
@@ -1104,6 +1153,7 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
         {tab==='create'&&<AdminCreateEvent onSave={saveEvent}/>}
         {tab==='events'&&(
           <>
+            <WelcomeBanner/>
             <div className="page-top">
               <div><div className="page-eyebrow">Admin</div><h2 className="page-title">Anlässe</h2></div>
             </div>
@@ -1263,12 +1313,7 @@ function MyShiftsView({events,profile,onSlotChange,showToast}){
 // ── USER VIEW ──
 function UserView({events,profile,setProfile,onSlotChange,openModal,showToast,deepLinkEventId}){
   const[tab,setTab]=useState('events');
-  const[showInstall,setShowInstall]=useState(false);
-  const[welcomed,setWelcomed]=useState(()=>localStorage.getItem('spinnplan_welcomed')==='1');
   const myShifts=useMemo(()=>findMyShifts(events,profile.name),[events,profile.name]);
-  const isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
-
-  function dismissWelcome(){setWelcomed(true);localStorage.setItem('spinnplan_welcomed','1');}
 
   return(
     <>
@@ -1281,17 +1326,7 @@ function UserView({events,profile,setProfile,onSlotChange,openModal,showToast,de
       <div className="main">
         {tab==='events'&&(
           <>
-            {!welcomed&&<div style={{background:'var(--surface)',border:'1px solid var(--border)',padding:'20px 22px',marginBottom:20}}>
-              <div style={{fontFamily:'var(--cond)',fontSize:'1.3rem',fontWeight:800,textTransform:'uppercase',marginBottom:6}}>Willkommen bei Spinnplan!</div>
-              <div style={{fontFamily:'var(--mono)',fontSize:'0.6rem',color:'var(--dim)',lineHeight:1.7,marginBottom:12}}>
-                Die Schicht-App der Kulturspinnerei Bern. Danke, dass du eine Schicht machst!
-              </div>
-              {!isStandalone&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-                <button className="btn sm white" onClick={()=>setShowInstall(true)}>📱 Als App installieren</button>
-                <span style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)'}}>Empfohlen</span>
-              </div>}
-              <button style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)',background:'transparent',border:'none',cursor:'pointer',textDecoration:'underline',padding:0}} onClick={dismissWelcome}>Nicht mehr anzeigen</button>
-            </div>}
+            <WelcomeBanner/>
             {(()=>{const upcoming=events.filter(ev=>!isEventPast(ev));
             return<>
             {upcoming.length===0&&<div className="empty-state"><div className="big">Keine Anlässe</div><p>Noch keine Anlässe verfügbar.</p></div>}
@@ -1304,32 +1339,6 @@ function UserView({events,profile,setProfile,onSlotChange,openModal,showToast,de
         )}
         {tab==='mine'&&<MyShiftsView events={events} profile={profile} onSlotChange={onSlotChange} showToast={showToast}/>}
       </div>
-
-      {showInstall&&<div className="overlay open" onClick={()=>setShowInstall(false)}>
-        <div className="modal" onClick={e=>e.stopPropagation()} style={{maxWidth:400}}>
-          <div className="modal-eye">Empfohlen</div>
-          <div className="modal-h">App installieren</div>
-          <div style={{fontFamily:'var(--mono)',fontSize:'0.6rem',color:'var(--dim)',lineHeight:1.8}}>
-            {/iphone|ipad|ipod/i.test(navigator.userAgent)
-              ?<><strong>iPhone / iPad (Safari):</strong><br/>
-                1. Tippe unten auf <strong>⬆ Teilen</strong><br/>
-                2. Scrolle und wähle <strong>«Zum Home-Bildschirm»</strong><br/>
-                3. Tippe auf <strong>«Hinzufügen»</strong><br/><br/>
-                Die App erscheint als Icon auf deinem Homescreen.</>
-              :<><strong>Android (Chrome):</strong><br/>
-                1. Tippe oben rechts auf <strong>⋮ Menü</strong><br/>
-                2. Wähle <strong>«Zum Startbildschirm hinzufügen»</strong><br/>
-                3. Bestätige mit <strong>«Hinzufügen»</strong><br/><br/>
-                <strong>Desktop (Chrome / Edge):</strong><br/>
-                1. Klicke in der Adressleiste auf das <strong>Install-Symbol</strong> (⊕)<br/>
-                2. Bestätige mit <strong>«Installieren»</strong></>
-            }
-          </div>
-          <div className="modal-acts" style={{marginTop:16}}>
-            <button className="btn white" onClick={()=>setShowInstall(false)}>Verstanden</button>
-          </div>
-        </div>
-      </div>}
     </>
   );
 }
