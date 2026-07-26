@@ -705,7 +705,7 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal,defaultOpen}){
         <span className="ev-chevron">▼</span>
       </div>
       {open&&<div className="ev-body open">
-        <div>
+        {!isHausfest&&<div>
           <div className="sec-label">Verantwortlichkeiten</div>
           <div className="resp-grid">
             {FIXED_ROLES.map(role=>{
@@ -724,7 +724,7 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal,defaultOpen}){
               );
             })}
           </div>
-        </div>
+        </div>}
         <div>
           <div className="sec-label">
             <span className="rt-dot"></span>Schichten (Echtzeit)
