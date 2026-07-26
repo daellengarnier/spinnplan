@@ -873,7 +873,40 @@ function AdminCreateEvent({onSave,onCancel,existing}){
         <div className="preview-blocks">{blocks.map((b,i)=><span key={i} className="preview-block">{b}</span>)}</div>
       </div></>}
       <div className="sec-div">Schicht-Rollen</div>
-      <div className="roles-check-grid">
+      {isHausfestForm
+      ?<div style={{display:'flex',flexDirection:'column',gap:2}}>
+        {ALL_SHIFT_TYPES.map(st=>(
+          <div key={st.key} style={{border:'1px solid',borderColor:enabledRoles[st.key]?'var(--text)':'var(--border)',background:enabledRoles[st.key]?'rgba(255,255,255,.03)':'var(--surface2)',padding:enabledRoles[st.key]?'12px 14px':'10px 14px'}}>
+            <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={()=>toggleRole(st.key)}>
+              <div className="role-check-box" style={{width:14,height:14,border:'1.5px solid',borderColor:enabledRoles[st.key]?'var(--text)':'var(--border2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.5rem',flexShrink:0,color:'var(--text)'}}>{enabledRoles[st.key]&&'✓'}</div>
+              <span style={{fontFamily:'var(--mono)',fontSize:'0.88rem',letterSpacing:'0.06em',textTransform:'uppercase',color:enabledRoles[st.key]?'var(--text)':'var(--muted)',flex:1}}>{st.label}</span>
+            </div>
+            {enabledRoles[st.key]&&(
+              <div style={{display:'flex',flexWrap:'wrap',gap:12,marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}} onClick={e=>e.stopPropagation()}>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:'0.5rem',color:'var(--muted)'}}>Personen</span>
+                  <button className="role-count-btn" onClick={()=>changeCount(st.key,-1)}>−</button>
+                  <span className="role-count-num">{roleCounts[st.key]||st.defaultCount}</span>
+                  <button className="role-count-btn" onClick={()=>changeCount(st.key,+1)}>+</button>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:'0.5rem',color:'var(--muted)'}}>Dauer</span>
+                  {DUR_OPTIONS.map(d=><button key={d.hours} style={{fontFamily:'var(--mono)',fontSize:'0.52rem',padding:'2px 6px',border:'1px solid',borderColor:(roleDurHours[st.key]||durHours)===d.hours?'var(--text)':'var(--border2)',background:(roleDurHours[st.key]||durHours)===d.hours?'rgba(255,255,255,.08)':'transparent',color:(roleDurHours[st.key]||durHours)===d.hours?'var(--text)':'var(--muted)',cursor:'pointer'}} onClick={()=>setRoleDurHours(r=>({...r,[st.key]:d.hours}))}>{d.label}</button>)}
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:'0.5rem',color:'var(--muted)'}}>Start</span>
+                  <input type="time" value={roleStartTimes[st.key]||startTime} onChange={e=>setRoleStartTimes(r=>({...r,[st.key]:e.target.value}))} style={{fontFamily:'var(--mono)',fontSize:'0.56rem',padding:'3px 6px',background:'var(--surface2)',border:'1px solid var(--border2)',color:'var(--text)',width:80}}/>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:4}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:'0.5rem',color:'var(--muted)'}}>Ende</span>
+                  <input type="time" value={roleEndTimes[st.key]||endTime} onChange={e=>setRoleEndTimes(r=>({...r,[st.key]:e.target.value}))} style={{fontFamily:'var(--mono)',fontSize:'0.56rem',padding:'3px 6px',background:'var(--surface2)',border:'1px solid var(--border2)',color:'var(--text)',width:80}}/>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      :<div className="roles-check-grid">
         {ALL_SHIFT_TYPES.map(st=>(
           <div key={st.key} className={`role-check-item${enabledRoles[st.key]?' checked':''}`} onClick={()=>toggleRole(st.key)}>
             <div className="role-check-box">{enabledRoles[st.key]&&'✓'}</div>
@@ -885,27 +918,17 @@ function AdminCreateEvent({onSave,onCancel,existing}){
                   <span className="role-count-num">{roleCounts[st.key]||st.defaultCount}</span>
                   <button className="role-count-btn" onClick={()=>changeCount(st.key,+1)}>+</button>
                 </div>
-                {!isHausfestForm&&<div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
+                <div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
                   <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Blöcke</span>
                   <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,-1)}>−</button>
                   <span className="role-count-num" style={{fontSize:'0.58rem',color:(roleBlocks[st.key]&&roleBlocks[st.key]<numBlocks)?'var(--gold)':'var(--dim)'}}>{roleBlocks[st.key]||numBlocks}</span>
                   <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,+1)}>+</button>
-                </div>}
-                <div style={{display:'flex',alignItems:'center',gap:3,marginTop:2}}>
-                  <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Dauer</span>
-                  {DUR_OPTIONS.map(d=><button key={d.hours} className="role-count-btn" style={{width:'auto',padding:'0 4px',fontSize:'0.48rem',background:(roleDurHours[st.key]||durHours)===d.hours?'rgba(255,255,255,.1)':'transparent',color:(roleDurHours[st.key]||durHours)===d.hours?'var(--text)':'var(--muted)'}} onClick={()=>setRoleDurHours(r=>({...r,[st.key]:d.hours}))}>{d.label}</button>)}
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:3,marginTop:2}}>
-                  <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Start</span>
-                  <input type="time" value={roleStartTimes[st.key]||startTime} onChange={e=>setRoleStartTimes(r=>({...r,[st.key]:e.target.value}))} style={{fontFamily:'var(--mono)',fontSize:'0.48rem',padding:'1px 4px',background:'var(--surface2)',border:'1px solid var(--border2)',color:'var(--text)',width:70}}/>
-                  <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Ende</span>
-                  <input type="time" value={roleEndTimes[st.key]||endTime} onChange={e=>setRoleEndTimes(r=>({...r,[st.key]:e.target.value}))} style={{fontFamily:'var(--mono)',fontSize:'0.48rem',padding:'1px 4px',background:'var(--surface2)',border:'1px solid var(--border2)',color:'var(--text)',width:70}}/>
                 </div>
               </div>
             )}
           </div>
         ))}
-      </div>
+      </div>}
       <div className="sec-div">Eigene Rollen</div>
       <div style={{display:'flex',flexDirection:'column',gap:6}}>
         {customRoles.map((cr,i)=>(
