@@ -367,6 +367,7 @@ async function subscribePush(userId){
 const FIXED_ROLES=['Abendverantwortung (AV)','Barverantwortung (BV)','Licht','Ton','Kochen','Filmen'];
 const ALL_SHIFT_TYPES=[
   {key:'Einlass',label:'Einlass',defaultCount:2},
+  {key:'EinlassGarten',label:'Einlass Garten',defaultCount:2},
   {key:'Bar',label:'Bar',defaultCount:2},
   {key:'Sicherheit',label:'Sicherheit',defaultCount:2},
   {key:'Garderobe',label:'Garderobe',defaultCount:1},
@@ -382,7 +383,7 @@ const TEMPLATES=[
   {label:'Konzertabend',icon:'🎸',startTime:'21:00',endTime:'00:30',durHours:1.5,enabledRoles:{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
   {label:'Clubnacht',icon:'🎧',startTime:'22:00',endTime:'04:00',durHours:2,enabledRoles:{Einlass:true,Bar:true,Sicherheit:true,Garderobe:false,Springer:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
   {label:'Kleinanlasse',icon:'🎤',startTime:'19:00',endTime:'22:00',durHours:1.5,enabledRoles:{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:false},roleCounts:{Einlass:1,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
-  {label:'Hausfest',icon:'🎉',startTime:'16:00',endTime:'08:00',durHours:2,enabledRoles:{Einlass:true,Bar:false,Sicherheit:true,Garderobe:false,Springer:false,BarSpinnerei:true,BarOstblock:true,CocktailDreiecksbar:true,BarGarten:true,SnackbarKleemex:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1,BarSpinnerei:2,BarOstblock:2,CocktailDreiecksbar:2,BarGarten:2,SnackbarKleemex:2}},
+  {label:'Hausfest',icon:'🎉',startTime:'16:00',endTime:'08:00',durHours:2,enabledRoles:{Einlass:true,EinlassGarten:true,Bar:false,Sicherheit:true,Garderobe:false,Springer:false,BarSpinnerei:true,BarOstblock:true,CocktailDreiecksbar:true,BarGarten:true,SnackbarKleemex:true},roleCounts:{Einlass:2,EinlassGarten:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1,BarSpinnerei:2,BarOstblock:2,CocktailDreiecksbar:2,BarGarten:2,SnackbarKleemex:2}},
 ];
 
 // ── HELPERS ──
@@ -564,7 +565,7 @@ function SlotMob({val,onSignup,onRemove,currentUser}){
 // ── HAUSFEST GROUPED VIEW ──
 const HAUSFEST_ROLES=['BarSpinnerei','BarOstblock','CocktailDreiecksbar','BarGarten','SnackbarKleemex'];
 const ROLE_GROUPS=[
-  {key:'einlass',label:'Einlass',icon:'🚪',roles:['Einlass']},
+  {key:'einlass',label:'Einlass',icon:'🚪',roles:['Einlass','EinlassGarten']},
   {key:'sicherheit',label:'Sicherheit',icon:'🛡️',roles:['Sicherheit']},
   {key:'bars',label:'Bars',icon:'🍺',roles:['Bar','BarSpinnerei','BarOstblock','CocktailDreiecksbar','BarGarten']},
   {key:'snacks',label:'Snackbar',icon:'🍕',roles:['SnackbarKleemex']},
