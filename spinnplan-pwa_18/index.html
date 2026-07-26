@@ -79,6 +79,9 @@ input,button,select,textarea{font-family:'VT323',monospace;}
 .nav::-webkit-scrollbar{height:0;}
 .nav-tab{font-family:var(--mono);font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;padding:11px 20px;background:transparent;color:var(--muted);border:none;border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;}
 .nav-tab.active{color:var(--text);border-bottom-color:var(--text);}
+.nav-bottom{position:fixed;bottom:0;left:0;right:0;z-index:100;background:#000;border-top:1px solid var(--border);display:flex;gap:0;margin-top:0;padding-bottom:env(safe-area-inset-bottom);}
+.nav-bottom .nav-tab{flex:1;text-align:center;border-bottom:none;border-top:2px solid transparent;padding:14px 10px;font-size:0.78rem;}
+.nav-bottom .nav-tab.active{border-top-color:var(--text);}
 .nav-tab:hover:not(.active){color:var(--dim);}
 .nav-badge{display:inline-block;font-size:0.5rem;background:var(--red);color:#fff;border-radius:99px;padding:1px 5px;margin-left:5px;vertical-align:middle;}
 
@@ -573,10 +576,11 @@ function WelcomeBanner(){
         <div style={{fontFamily:'var(--mono)',fontSize:'0.6rem',color:'var(--dim)',lineHeight:1.7,marginBottom:12}}>
           Die Schicht-App der Kulturspinnerei Bern. Danke, dass du eine Schicht machst!
         </div>
-        {!isStandalone&&<div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-          <button className="btn sm white" onClick={()=>setShowInstall(true)}>📱 Als App installieren</button>
-          <span style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)'}}>Empfohlen</span>
-        </div>}
+        {!isStandalone&&<div style={{marginBottom:12}}>
+          <div style={{fontFamily:'var(--mono)',fontSize:'0.58rem',color:'var(--dim)',marginBottom:8}}>Wir empfehlen die App runterzuladen:</div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <button className="btn sm white" onClick={()=>setShowInstall(true)}>📱 Anleitung</button>
+        </div></div>}
         <button style={{fontFamily:'var(--mono)',fontSize:'0.48rem',color:'var(--muted)',background:'transparent',border:'none',cursor:'pointer',textDecoration:'underline',padding:0}} onClick={dismiss}>Nicht mehr anzeigen</button>
       </div>
       {showInstall&&<div className="overlay open" onClick={()=>setShowInstall(false)}>
@@ -1144,11 +1148,6 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
 
   return(
     <>
-      <div className="nav">
-        <button className={`nav-tab${tab==='events'?' active':''}`} onClick={()=>setTab('events')}>Anlässe</button>
-        <button className={`nav-tab${tab==='create'?' active':''}`} onClick={()=>setTab('create')}>+ Neu</button>
-        <button className={`nav-tab${tab==='mine'?' active':''}`} onClick={()=>setTab('mine')}>Meine Schichten</button>
-      </div>
       <div className="main">
         {tab==='create'&&<AdminCreateEvent onSave={saveEvent}/>}
         {tab==='events'&&(
@@ -1156,6 +1155,7 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
             <WelcomeBanner/>
             <div className="page-top">
               <div><div className="page-eyebrow">Admin</div><h2 className="page-title">Anlässe</h2></div>
+              <button className="btn white" onClick={()=>setTab('create')}>+ Neu</button>
             </div>
             {(()=>{const upcoming=events.filter(ev=>!isEventPast(ev));
             return<>
@@ -1177,6 +1177,10 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
           </>
         )}
         {tab==='mine'&&<MyShiftsView events={events} profile={profile} onSlotChange={onSlotChange} showToast={showToast}/>}
+      </div>
+      <div className="nav nav-bottom">
+        <button className={`nav-tab${tab==='events'?' active':''}`} onClick={()=>setTab('events')}>Anlässe</button>
+        <button className={`nav-tab${tab==='mine'?' active':''}`} onClick={()=>setTab('mine')}>Meine Schichten</button>
       </div>
     </>
   );
@@ -1317,12 +1321,6 @@ function UserView({events,profile,setProfile,onSlotChange,openModal,showToast,de
 
   return(
     <>
-      <div className="nav">
-        <button className={`nav-tab${tab==='events'?' active':''}`} onClick={()=>setTab('events')}>Anlässe</button>
-        <button className={`nav-tab${tab==='mine'?' active':''}`} onClick={()=>setTab('mine')}>
-          Meine Schichten{myShifts.length>0&&<span className="nav-badge">{myShifts.length}</span>}
-        </button>
-      </div>
       <div className="main">
         {tab==='events'&&(
           <>
@@ -1339,11 +1337,15 @@ function UserView({events,profile,setProfile,onSlotChange,openModal,showToast,de
         )}
         {tab==='mine'&&<MyShiftsView events={events} profile={profile} onSlotChange={onSlotChange} showToast={showToast}/>}
       </div>
+      <div className="nav nav-bottom">
+        <button className={`nav-tab${tab==='events'?' active':''}`} onClick={()=>setTab('events')}>Anlässe</button>
+        <button className={`nav-tab${tab==='mine'?' active':''}`} onClick={()=>setTab('mine')}>
+          Meine Schichten{myShifts.length>0&&<span className="nav-badge">{myShifts.length}</span>}
+        </button>
+      </div>
     </>
   );
 }
-
-
 
 // ── NOTIF PAGE (shared) ──
 function NotifPage({profile,setProfile,showToast}){
