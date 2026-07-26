@@ -1,5 +1,5 @@
 // Spinnplan Service Worker
-const CACHE_NAME = 'spinnplan-v3';
+const CACHE_NAME = 'spinnplan-v4';
 const STATIC = ['/'];
 
 self.addEventListener('install', e => {
