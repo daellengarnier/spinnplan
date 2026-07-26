@@ -378,6 +378,10 @@ const ALL_SHIFT_TYPES=[
   {key:'BarGarten',label:'Bar Garten',defaultCount:2},
   {key:'SnackbarKleemex',label:'Snackbar Kleemex',defaultCount:2},
 ];
+function getEventRoles(ev){
+  if(!ev||!ev.customRoles||!ev.customRoles.length)return ALL_SHIFT_TYPES;
+  return[...ALL_SHIFT_TYPES,...ev.customRoles.map(r=>({key:r.key,label:r.label,defaultCount:r.defaultCount||2}))];
+}
 const DUR_OPTIONS=[{label:'1h',hours:1},{label:'1.5h',hours:1.5},{label:'2h',hours:2},{label:'3h',hours:3}];
 const TEMPLATES=[
   {label:'Konzertabend',icon:'🎸',startTime:'21:00',endTime:'00:30',durHours:1.5,enabledRoles:{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
@@ -422,7 +426,7 @@ function getRoleBlockCount(ev,roleKey){
 function getRoleBlocks(ev,roleKey){return computeBlocks(getRoleStart(ev,roleKey),getRoleDur(ev,roleKey),getRoleBlockCount(ev,roleKey));}
 function buildSlots(ev){
   const slots={};
-  ALL_SHIFT_TYPES.forEach(st=>{
+  getEventRoles(ev).forEach(st=>{
     if(!ev.enabledRoles[st.key])return;
     const cnt=ev.roleCounts[st.key]||st.defaultCount;
     const blocks=getRoleBlocks(ev,st.key);
@@ -432,7 +436,7 @@ function buildSlots(ev){
 }
 function countSlots(ev){
   let n=0;
-  ALL_SHIFT_TYPES.forEach(st=>{
+  getEventRoles(ev).forEach(st=>{
     if(!ev.enabledRoles[st.key])return;
     const cnt=ev.roleCounts[st.key]||st.defaultCount;
     const blocks=getRoleBlocks(ev,st.key);
@@ -442,7 +446,7 @@ function countSlots(ev){
 }
 function countFilled(ev){
   let n=0;
-  ALL_SHIFT_TYPES.forEach(st=>{
+  getEventRoles(ev).forEach(st=>{
     if(!ev.enabledRoles[st.key])return;
     const cnt=ev.roleCounts[st.key]||st.defaultCount;
     const blocks=getRoleBlocks(ev,st.key);
@@ -462,7 +466,7 @@ function fmtDate(d){
 function findMyShifts(events,userName){
   const shifts=[];
   events.forEach(ev=>{
-    ALL_SHIFT_TYPES.forEach(st=>{
+    getEventRoles(ev).forEach(st=>{
       if(!ev.enabledRoles[st.key])return;
       const cnt=ev.roleCounts[st.key]||st.defaultCount;
       const blocks=getRoleBlocks(ev,st.key);
@@ -496,6 +500,7 @@ function dbToEvent(row, slots_rows){
     roleStartTimes:row.role_start_times||{},
     roleEndTimes:row.role_end_times||{},
     fixedRoles:row.fixed_roles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),
+    customRoles:row.custom_roles||[],
     slots,
   };
 }
@@ -512,6 +517,7 @@ function eventToDb(ev){
     role_start_times:ev.roleStartTimes||{},
     role_end_times:ev.roleEndTimes||{},
     fixed_roles:ev.fixedRoles,
+    custom_roles:ev.customRoles||[],
   };
 }
 
@@ -574,7 +580,7 @@ const ROLE_GROUPS=[
 
 function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
   const[openGroup,setOpenGroup]=useState(null);
-  const activeRoles=ALL_SHIFT_TYPES.filter(st=>ev.enabledRoles[st.key]);
+  const activeRoles=getEventRoles(ev).filter(st=>ev.enabledRoles[st.key]);
   const activeGroups=ROLE_GROUPS.map(g=>{
     const roles=g.roles.map(k=>activeRoles.find(st=>st.key===k)).filter(Boolean);
     if(roles.length===0)return null;
@@ -587,6 +593,18 @@ function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
     });
     return{...g,roles,total,filled,open:total-filled};
   }).filter(Boolean);
+  const groupedKeys=new Set(ROLE_GROUPS.flatMap(g=>g.roles));
+  const ungrouped=activeRoles.filter(st=>!groupedKeys.has(st.key));
+  if(ungrouped.length>0){
+    let total=0,filled=0;
+    ungrouped.forEach(st=>{
+      const cnt=ev.roleCounts[st.key]||st.defaultCount;
+      const blks=getRoleBlocks(ev,st.key);
+      blks.forEach((_,bi)=>{const arr=ev.slots[`${st.key}_${bi}`]||[];
+        for(let si=0;si<cnt;si++){total++;if(arr[si]&&arr[si].trim())filled++;}});
+    });
+    activeGroups.push({key:'custom',label:'Weitere',icon:'⚡',roles:ungrouped,total,filled,open:total-filled});
+  }
 
   return(
     <div style={{display:'flex',flexDirection:'column',gap:2}}>
@@ -646,7 +664,7 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal,defaultOpen}){
   const total=countSlots(ev),filled=countFilled(ev);
   const pct=total>0?Math.round(filled/total*100):0;
   const openSlots=total-filled;
-  const activeRoles=ALL_SHIFT_TYPES.filter(st=>ev.enabledRoles[st.key]);
+  const activeRoles=getEventRoles(ev).filter(st=>ev.enabledRoles[st.key]);
   const isHausfest=HAUSFEST_ROLES.some(k=>ev.enabledRoles[k]);
 
   async function handleSignup(key,si){
@@ -792,6 +810,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   const[roleDurHours,setRoleDurHours]=useState(existing?.roleDurHours||{});
   const[roleStartTimes,setRoleStartTimes]=useState(existing?.roleStartTimes||{});
   const[roleEndTimes,setRoleEndTimes]=useState(existing?.roleEndTimes||{});
+  const[customRoles,setCustomRoles]=useState(existing?.customRoles||[]);
   const[saving,setSaving]=useState(false);
   const[err,setErr]=useState('');
 
@@ -799,7 +818,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   function handleStart(v){setStartTimeS(v);if(endTime)recalc(v,endTime,durHours);}
   function handleEnd(v){setEndTimeS(v);if(startTime)recalc(startTime,v,durHours);}
   function handleDur(v){setDurHoursS(v);if(startTime&&endTime)recalc(startTime,endTime,v);}
-  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);setRoleDurHours(t.roleDurHours||{});setRoleStartTimes(t.roleStartTimes||{});setRoleEndTimes(t.roleEndTimes||{});recalc(t.startTime,t.endTime,t.durHours);}
+  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);setRoleDurHours(t.roleDurHours||{});setRoleStartTimes(t.roleStartTimes||{});setRoleEndTimes(t.roleEndTimes||{});setCustomRoles(t.customRoles||[]);recalc(t.startTime,t.endTime,t.durHours);}
   function toggleRole(k){setEnabledRoles(r=>({...r,[k]:!r[k]}));}
   function changeCount(k,d){setRoleCounts(r=>({...r,[k]:Math.max(1,Math.min(4,(r[k]||1)+d))}));}
   function changeRoleBlocks(k,d){setRoleBlocks(r=>({...r,[k]:Math.max(0,Math.min(numBlocks,(r[k]||numBlocks)+d))}));}
@@ -811,7 +830,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   async function doSave(){
     if(!name.trim()||!date){setErr('Name und Datum sind erforderlich.');return;}
     setSaving(true);setErr('');
-    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,roleDurHours,roleStartTimes,roleEndTimes,
+    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,roleDurHours,roleStartTimes,roleEndTimes,customRoles,
       fixedRoles:existing?.fixedRoles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),slots:{}};
     await onSave(ev);
     setSaving(false);
@@ -887,6 +906,26 @@ function AdminCreateEvent({onSave,onCancel,existing}){
           </div>
         ))}
       </div>
+      <div className="sec-div">Eigene Rollen</div>
+      <div style={{display:'flex',flexDirection:'column',gap:6}}>
+        {customRoles.map((cr,i)=>(
+          <div key={cr.key} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',border:'1px solid var(--border)',background:'var(--surface2)'}}>
+            <input value={cr.label} onChange={e=>{const r=[...customRoles];r[i]={...r[i],label:e.target.value};setCustomRoles(r);}} placeholder="Rollenname" style={{flex:1,fontFamily:'var(--mono)',fontSize:'0.82rem',background:'transparent',border:'1px solid var(--border2)',color:'var(--text)',padding:'6px 8px'}}/>
+            <div className="role-count-wrap">
+              <button className="role-count-btn" onClick={()=>{const r=[...customRoles];r[i]={...r[i],defaultCount:Math.max(1,(r[i].defaultCount||2)-1)};setCustomRoles(r);}}>&#8722;</button>
+              <span className="role-count-num">{cr.defaultCount||2}</span>
+              <button className="role-count-btn" onClick={()=>{const r=[...customRoles];r[i]={...r[i],defaultCount:Math.min(4,(r[i].defaultCount||2)+1)};setCustomRoles(r);}}>+</button>
+            </div>
+            <button className="btn sm red" onClick={()=>{const r=customRoles.filter((_,j)=>j!==i);setCustomRoles(r);const er={...enabledRoles};delete er[cr.key];setEnabledRoles(er);}}>&#10005;</button>
+          </div>
+        ))}
+        <button className="btn sm" onClick={()=>{
+          const key='custom_'+Date.now();
+          setCustomRoles([...customRoles,{key,label:'',defaultCount:2}]);
+          setEnabledRoles({...enabledRoles,[key]:true});
+          setRoleCounts({...roleCounts,[key]:2});
+        }} style={{alignSelf:'flex-start'}}>+ Rolle hinzufuegen</button>
+      </div>
       {err&&<div style={{fontFamily:'var(--mono)',fontSize:'0.56rem',color:'var(--red)',marginTop:10}}>{err}</div>}
       <div className="form-actions">
         {onCancel&&<button className="btn" onClick={onCancel}>Abbrechen</button>}
@@ -898,7 +937,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
 
 // ── EXPORT PDF ──
 function exportPDF(ev){
-  const activeRoles=ALL_SHIFT_TYPES.filter(st=>ev.enabledRoles[st.key]);
+  const activeRoles=getEventRoles(ev).filter(st=>ev.enabledRoles[st.key]);
   const{full}=fmtDate(ev.date);
   // Group roles by their block set
   const groups=[];const seen={};
