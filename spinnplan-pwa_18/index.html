@@ -382,6 +382,7 @@ function getEventRoles(ev){
   if(!ev||!ev.customRoles||!ev.customRoles.length)return ALL_SHIFT_TYPES;
   return[...ALL_SHIFT_TYPES,...ev.customRoles.map(r=>({key:r.key,label:r.label,defaultCount:r.defaultCount||2}))];
 }
+function getRoleLabel(ev,st){return(ev.roleLabels&&ev.roleLabels[st.key])||st.label;}
 const DUR_OPTIONS=[{label:'1h',hours:1},{label:'1.5h',hours:1.5},{label:'2h',hours:2},{label:'3h',hours:3}];
 const TEMPLATES=[
   {label:'Konzertabend',icon:'🎸',startTime:'21:00',endTime:'00:30',durHours:1.5,enabledRoles:{Einlass:true,Bar:true,Sicherheit:false,Garderobe:false,Springer:true},roleCounts:{Einlass:2,Bar:2,Sicherheit:2,Garderobe:1,Springer:1}},
@@ -473,7 +474,7 @@ function findMyShifts(events,userName){
       blocks.forEach((block,bi)=>{
         const key=`${st.key}_${bi}`;
         (ev.slots[key]||[]).forEach((v,si)=>{
-          if(v===userName)shifts.push({evId:ev.id,evName:ev.name,date:ev.date,role:st.label,time:block,key,si});
+          if(v===userName)shifts.push({evId:ev.id,evName:ev.name,date:ev.date,role:getRoleLabel(ev,st),time:block,key,si});
         });
       });
     });
@@ -501,6 +502,7 @@ function dbToEvent(row, slots_rows){
     roleEndTimes:row.role_end_times||{},
     fixedRoles:row.fixed_roles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),
     customRoles:row.custom_roles||[],
+    roleLabels:row.role_labels||{},
     slots,
   };
 }
@@ -518,6 +520,7 @@ function eventToDb(ev){
     role_end_times:ev.roleEndTimes||{},
     fixed_roles:ev.fixedRoles,
     custom_roles:ev.customRoles||[],
+    role_labels:ev.roleLabels||{},
   };
 }
 
@@ -627,7 +630,7 @@ function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
               const cnt=ev.roleCounts[st.key]||st.defaultCount;
               return(
                 <div key={st.key} style={{borderBottom:'1px solid var(--border)'}}>
-                  {g.roles.length>1&&<div style={{fontFamily:'var(--mono)',fontSize:'0.54rem',letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--gold)',padding:'10px 14px 4px',fontWeight:700}}>{st.label}</div>}
+                  {g.roles.length>1&&<div style={{fontFamily:'var(--mono)',fontSize:'0.54rem',letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--gold)',padding:'10px 14px 4px',fontWeight:700}}>{getRoleLabel(ev,st)}</div>}
                   {blks.map((block,bi)=>{
                     const key=`${st.key}_${bi}`;
                     const arr=ev.slots[key]||[];
@@ -639,7 +642,7 @@ function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
                             const val=arr[si]??null;
                             const isMe=val&&currentUser&&val===currentUser.name;
                             if(val)return<span key={si} className={`slot-mob ${isMe?'mine':'filled'}`} onClick={isMe||currentUser?.isAdmin?()=>handleRemove(key,si):undefined} style={{minWidth:0,flex:'1 1 auto',justifyContent:'center'}}>{val}{(isMe||currentUser?.isAdmin)&&<span style={{fontSize:'0.6rem',opacity:.6,marginLeft:4}}>✕</span>}</span>;
-                            return<span key={si} className="slot-mob empty" onClick={()=>openModal(ev.id,key,si,st.label,block)} style={{minWidth:0,flex:'1 1 auto',justifyContent:'center'}}>+ Eintragen</span>;
+                            return<span key={si} className="slot-mob empty" onClick={()=>openModal(ev.id,key,si,getRoleLabel(ev,st),block)} style={{minWidth:0,flex:'1 1 auto',justifyContent:'center'}}>+ Eintragen</span>;
                           })}
                         </div>
                       </div>
@@ -747,13 +750,13 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal,defaultOpen}){
                       const cnt=ev.roleCounts[st.key]||st.defaultCount;
                       return Array.from({length:cnt},(_,si)=>(
                         <tr key={`${st.key}-${si}`}>
-                          <td className="rn">{st.label}</td>
+                          <td className="rn">{getRoleLabel(ev,st)}</td>
                           {g.blocks.map((_,bi)=>{
                             const key=`${st.key}_${bi}`;
                             const arr=ev.slots[key]||[];
                             const isSaving=saving===`${key}_${si}`;
                             return<SlotCell key={bi} val={arr[si]??null} currentUser={currentUser} saving={isSaving}
-                              onSignup={()=>openModal(ev.id,key,si,st.label,g.blocks[bi])}
+                              onSignup={()=>openModal(ev.id,key,si,getRoleLabel(ev,st),g.blocks[bi])}
                               onRemove={()=>handleRemove(key,si)}/>;
                           })}
                         </tr>
@@ -770,7 +773,7 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal,defaultOpen}){
               const cnt=ev.roleCounts[st.key]||st.defaultCount;
               return blks.map((block,bi)=>(
                 <div key={`${st.key}-${bi}`} className="shift-block-card">
-                  <div className="shift-block-header">{st.label} · {block}</div>
+                  <div className="shift-block-header">{getRoleLabel(ev,st)} · {block}</div>
                   {Array.from({length:cnt},(_,si)=>{
                     const key=`${st.key}_${bi}`;
                     const arr=ev.slots[key]||[];
@@ -779,7 +782,7 @@ function EventCard({ev,currentUser,isAdmin,onSlotChange,openModal,defaultOpen}){
                         <span className="shift-role-lbl">Platz {si+1}</span>
                         <div className="shift-slot-mob">
                           <SlotMob val={arr[si]??null} currentUser={currentUser}
-                            onSignup={()=>openModal(ev.id,key,si,st.label,block)}
+                            onSignup={()=>openModal(ev.id,key,si,getRoleLabel(ev,st),block)}
                             onRemove={()=>handleRemove(key,si)}/>
                         </div>
                       </div>
@@ -811,6 +814,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   const[roleStartTimes,setRoleStartTimes]=useState(existing?.roleStartTimes||{});
   const[roleEndTimes,setRoleEndTimes]=useState(existing?.roleEndTimes||{});
   const[customRoles,setCustomRoles]=useState(existing?.customRoles||[]);
+  const[roleLabels,setRoleLabels]=useState(existing?.roleLabels||{});
   const[saving,setSaving]=useState(false);
   const[err,setErr]=useState('');
 
@@ -818,7 +822,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   function handleStart(v){setStartTimeS(v);if(endTime)recalc(v,endTime,durHours);}
   function handleEnd(v){setEndTimeS(v);if(startTime)recalc(startTime,v,durHours);}
   function handleDur(v){setDurHoursS(v);if(startTime&&endTime)recalc(startTime,endTime,v);}
-  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);setRoleDurHours(t.roleDurHours||{});setRoleStartTimes(t.roleStartTimes||{});setRoleEndTimes(t.roleEndTimes||{});setCustomRoles(t.customRoles||[]);recalc(t.startTime,t.endTime,t.durHours);}
+  function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);setRoleDurHours(t.roleDurHours||{});setRoleStartTimes(t.roleStartTimes||{});setRoleEndTimes(t.roleEndTimes||{});setCustomRoles(t.customRoles||[]);setRoleLabels(t.roleLabels||{});recalc(t.startTime,t.endTime,t.durHours);}
   function toggleRole(k){setEnabledRoles(r=>({...r,[k]:!r[k]}));}
   function changeCount(k,d){setRoleCounts(r=>({...r,[k]:Math.max(1,Math.min(4,(r[k]||1)+d))}));}
   function changeRoleBlocks(k,d){setRoleBlocks(r=>({...r,[k]:Math.max(0,Math.min(numBlocks,(r[k]||numBlocks)+d))}));}
@@ -830,7 +834,7 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   async function doSave(){
     if(!name.trim()||!date){setErr('Name und Datum sind erforderlich.');return;}
     setSaving(true);setErr('');
-    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,roleDurHours,roleStartTimes,roleEndTimes,customRoles,
+    const ev={id:existing?.id,name:name.trim(),date,startTime,endTime,durHours,numBlocks,enabledRoles,roleCounts,roleBlocks,roleDurHours,roleStartTimes,roleEndTimes,customRoles,roleLabels,
       fixedRoles:existing?.fixedRoles||Object.fromEntries(FIXED_ROLES.map(r=>[r,''])),slots:{}};
     await onSave(ev);
     setSaving(false);
@@ -879,7 +883,9 @@ function AdminCreateEvent({onSave,onCancel,existing}){
           <div key={st.key} style={{border:'1px solid',borderColor:enabledRoles[st.key]?'var(--text)':'var(--border)',background:enabledRoles[st.key]?'rgba(255,255,255,.03)':'var(--surface2)',padding:enabledRoles[st.key]?'12px 14px':'10px 14px'}}>
             <div style={{display:'flex',alignItems:'center',gap:10,cursor:'pointer'}} onClick={()=>toggleRole(st.key)}>
               <div className="role-check-box" style={{width:14,height:14,border:'1.5px solid',borderColor:enabledRoles[st.key]?'var(--text)':'var(--border2)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'0.5rem',flexShrink:0,color:'var(--text)'}}>{enabledRoles[st.key]&&'✓'}</div>
-              <span style={{fontFamily:'var(--mono)',fontSize:'0.88rem',letterSpacing:'0.06em',textTransform:'uppercase',color:enabledRoles[st.key]?'var(--text)':'var(--muted)',flex:1}}>{st.label}</span>
+              {enabledRoles[st.key]
+                ?<input value={roleLabels[st.key]||st.label} onClick={e=>e.stopPropagation()} onChange={e=>setRoleLabels(r=>({...r,[st.key]:e.target.value}))} style={{fontFamily:'var(--mono)',fontSize:'0.88rem',letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--text)',flex:1,background:'transparent',border:'1px solid var(--border2)',padding:'4px 8px'}}/>
+                :<span style={{fontFamily:'var(--mono)',fontSize:'0.88rem',letterSpacing:'0.06em',textTransform:'uppercase',color:'var(--muted)',flex:1}}>{st.label}</span>}
             </div>
             {enabledRoles[st.key]&&(
               <div style={{display:'flex',flexWrap:'wrap',gap:12,marginTop:10,paddingTop:10,borderTop:'1px solid var(--border)'}} onClick={e=>e.stopPropagation()}>
@@ -976,7 +982,7 @@ function exportPDF(ev){
     g.roles.forEach(st=>{
       const cnt=ev.roleCounts[st.key]||st.defaultCount;
       for(let si=0;si<cnt;si++){
-        rows+=`<tr><td style="font-family:monospace;font-size:11px;color:#666;padding:7px 12px;border:1px solid #ddd;white-space:nowrap;background:#f9f9f9">${st.label}</td>
+        rows+=`<tr><td style="font-family:monospace;font-size:11px;color:#666;padding:7px 12px;border:1px solid #ddd;white-space:nowrap;background:#f9f9f9">${getRoleLabel(ev,st)}</td>
         ${g.blocks.map((_,bi)=>{const val=(ev.slots[`${st.key}_${bi}`]||[])[si]??null;
           return`<td style="padding:7px 12px;border:1px solid #ddd;text-align:center;font-size:13px;${val===null?'color:#ccc;background:#f5f5f5':val?'color:#2d7a35;font-weight:600':'color:#bbb'}">${val===null?'—':val||'·'}</td>`;}).join('')}</tr>`;
       }
