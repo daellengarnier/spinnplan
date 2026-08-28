@@ -2385,6 +2385,7 @@ function App(){
             <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('archiv');}}>📦 Archiv</button>
             {profile.isAdmin&&<button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);setMenuTab('users');}}>👥 User:innen</button>}
             <div className="h-dropdown-divider"/>
+            <button className="h-dropdown-item" onClick={()=>{setMenuOpen(false);if(navigator.share){navigator.share({title:'Spinnplan',text:'Trag dich für eine Schicht ein!',url:window.location.origin}).catch(()=>{});}else{navigator.clipboard.writeText(window.location.origin);showToast('Link kopiert!','green');}}}>↗ App teilen</button>
             <button className="h-dropdown-item red" onClick={()=>{setMenuOpen(false);logout();}}>→ Logout</button>
           </div>
         </div>
