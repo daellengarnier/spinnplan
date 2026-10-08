@@ -911,7 +911,10 @@ function AdminCreateEvent({onSave,onCancel,existing}){
   function applyTpl(t){setStartTimeS(t.startTime);setEndTimeS(t.endTime);setDurHoursS(t.durHours);setEnabledRoles(t.enabledRoles);setRoleCounts(t.roleCounts);setRoleDurHours(t.roleDurHours||{});setRoleStartTimes(t.roleStartTimes||{});setRoleEndTimes(t.roleEndTimes||{});setCustomRoles(t.customRoles||[]);setRoleLabels(t.roleLabels||{});recalc(t.startTime,t.endTime,t.durHours);}
   function toggleRole(k){setEnabledRoles(r=>({...r,[k]:!r[k]}));}
   function changeCount(k,d){setRoleCounts(r=>({...r,[k]:Math.max(1,Math.min(4,(r[k]||1)+d))}));}
-  function changeRoleBlocks(k,d){setRoleBlocks(r=>({...r,[k]:Math.max(0,Math.min(numBlocks,(r[k]||numBlocks)+d))}));}
+  function roleDur(k){return roleDurHours[k]||durHours;}
+  function roleNb(k){return(startTime&&endTime)?calcNumBlocks(startTime,endTime,roleDur(k)):numBlocks;}
+  function changeRoleBlocks(k,d){setRoleBlocks(r=>({...r,[k]:Math.max(0,Math.min(roleNb(k),(r[k]||roleNb(k))+d))}));}
+  function setRoleDur(k,h){setRoleDurHours(r=>{const n={...r};if(h===durHours)delete n[k];else n[k]=h;return n;});}
 
   const blocks=computeBlocks(startTime,durHours,numBlocks);
   const computedEnd=blocks.length>0?blocks[blocks.length-1].split(' – ')[1]:'';
@@ -1018,9 +1021,14 @@ function AdminCreateEvent({onSave,onCancel,existing}){
                 <div style={{display:'flex',alignItems:'center',gap:4,marginTop:2}}>
                   <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Blöcke</span>
                   <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,-1)}>−</button>
-                  <span className="role-count-num" style={{fontSize:'0.58rem',color:(roleBlocks[st.key]&&roleBlocks[st.key]<numBlocks)?'var(--gold)':'var(--dim)'}}>{roleBlocks[st.key]||numBlocks}</span>
+                  <span className="role-count-num" style={{fontSize:'0.58rem',color:(roleBlocks[st.key]&&roleBlocks[st.key]<roleNb(st.key))?'var(--gold)':'var(--dim)'}}>{Math.min(roleBlocks[st.key]||roleNb(st.key),roleNb(st.key))}</span>
                   <button className="role-count-btn" onClick={()=>changeRoleBlocks(st.key,+1)}>+</button>
                 </div>
+                <div style={{display:'flex',alignItems:'center',gap:3,marginTop:2}}>
+                  <span style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--muted)',letterSpacing:'0.04em'}}>Dauer</span>
+                  {DUR_OPTIONS.map(d=><button key={d.hours} style={{fontFamily:'var(--mono)',fontSize:'0.48rem',padding:'1px 4px',border:'1px solid',borderColor:roleDur(st.key)===d.hours?'var(--text)':'var(--border2)',background:roleDur(st.key)===d.hours?'rgba(255,255,255,.08)':'transparent',color:roleDur(st.key)===d.hours?'var(--text)':'var(--muted)',cursor:'pointer'}} onClick={()=>setRoleDur(st.key,d.hours)}>{d.label}</button>)}
+                </div>
+                {roleDurHours[st.key]&&<div style={{fontFamily:'var(--mono)',fontSize:'0.44rem',color:'var(--gold)',textAlign:'right'}}>{computeBlocks(startTime,roleDur(st.key),Math.min(roleBlocks[st.key]||roleNb(st.key),roleNb(st.key))).join(' · ')}</div>}
               </div>
             )}
           </div>
