@@ -1207,6 +1207,7 @@ function AdminPanel({events,profile,setProfile:setProfileFn,onSlotChange,showToa
                   <EventCard ev={ev} currentUser={profile} isAdmin={true} onSlotChange={onSlotChange} openModal={openModal} defaultOpen={ev.id===deepLinkEventId}/>
                   <div className="ev-admin-actions">
                     <button className="btn sm" onClick={()=>{navigator.clipboard.writeText(`${window.location.origin}?event=${ev.id}`);showToast('Link kopiert!','green');}}>🔗 Link</button>
+                    <button className="btn sm" onClick={()=>{navigator.clipboard.writeText(`${window.location.origin}?event=${ev.id}&guest=1`);showToast('Gast-Link kopiert!','green');}}>↗ Teilen</button>
                     {(countSlots(ev)-countFilled(ev))>0&&<button className="btn sm" style={{borderColor:'var(--gold)',color:'var(--gold)'}} onClick={()=>sendShiftReminder(ev)} disabled={sendingReminder===ev.id}>{sendingReminder===ev.id?'Senden…':'📢 Schichten gesucht'}</button>}
                     <button className="btn sm green" onClick={()=>exportPDF(ev)}>↓ PDF</button>
                     <button className="btn sm" onClick={()=>setEditing(ev)}>✎ Bearbeiten</button>
@@ -1907,19 +1908,20 @@ function GuidesPage({isAdmin,showToast}){
 }
 
 // ── GUEST VIEW ──
-function GuestView({events,guestName,onSlotChange,openModal,showToast,deepLinkEventId}){
+function GuestView({events,guestName,onSlotChange,openModal,showToast,deepLinkEventId,guestDirect}){
   const currentUser={name:guestName,id:null,isAdmin:false,isGuest:true};
   const upcoming=events.filter(e=>e.date>=new Date().toISOString().split('T')[0]);
+  const filtered=guestDirect&&deepLinkEventId?upcoming.filter(e=>e.id===deepLinkEventId):upcoming;
   return(
     <div className="main">
       <div className="page-eyebrow">Aushilfe</div>
-      <div className="page-title">Anlässe</div>
+      <div className="page-title">{guestDirect&&filtered.length===1?filtered[0].name:'Anlässe'}</div>
       <div style={{background:'#1a1200',border:'1px solid #3a2a00',padding:'12px 16px',marginBottom:20,fontFamily:'var(--mono)',fontSize:'0.55rem',color:'#c9a84c',letterSpacing:'0.08em',lineHeight:1.6}}>
-        Du bist als Aushilfe eingeloggt. Du kannst dich in Schichten eintragen, aber nicht selbst abmelden. Bei Verhinderung bitte den Veranstaltenden kontaktieren.
+        Du kannst dich in Schichten eintragen, aber nicht selbst abmelden. Bei Verhinderung bitte den Veranstaltenden kontaktieren.
       </div>
-      {upcoming.length===0
+      {filtered.length===0
         ?<div className="empty-state"><div className="big">Keine Anlässe</div></div>
-        :upcoming.map(ev=><EventCard key={ev.id} ev={ev} currentUser={currentUser} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal} defaultOpen={ev.id===deepLinkEventId}/>)
+        :filtered.map(ev=><EventCard key={ev.id} ev={ev} currentUser={currentUser} isAdmin={false} onSlotChange={onSlotChange} openModal={openModal} defaultOpen={true}/>)
       }
     </div>
   );
@@ -2139,6 +2141,7 @@ function App(){
   const[loading,setLoading]=useState(true);
   const[modal,setModal]=useState(null);
   const[deepLinkEventId]=useState(()=>new URLSearchParams(window.location.search).get('event'));
+  const[guestDirect]=useState(()=>new URLSearchParams(window.location.search).get('guest')==='1');
   const[menuOpen,setMenuOpen]=useState(false);
   const[menuTab,setMenuTab]=useState(null);
   const[toast,setToast]=useState(null);
@@ -2346,6 +2349,10 @@ function App(){
   );
 
   if(!guestName&&(!session||!profile)){
+    if(guestDirect&&deepLinkEventId) return<GuestScreen
+      onGuest={(name)=>{setGuestName(name);setShowGuestScreen(false);loadEvents();}}
+      onBack={()=>{window.location.search='';}}
+    />;
     if(showGuestScreen) return<GuestScreen
       onGuest={(name)=>{setGuestName(name);setShowGuestScreen(false);loadEvents();}}
       onBack={()=>setShowGuestScreen(false)}
@@ -2432,7 +2439,7 @@ function App(){
         </div>
       )}
       {!menuTab&&(guestName
-        ?<GuestView events={events} guestName={guestName} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast} deepLinkEventId={deepLinkEventId}/>
+        ?<GuestView events={events} guestName={guestName} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast} deepLinkEventId={deepLinkEventId} guestDirect={guestDirect}/>
         :profile.is_admin
           ?<AdminPanel events={events} profile={profile} setProfile={p=>setProfile(p)} onSlotChange={onSlotChange} showToast={showToast} loadEvents={loadEvents} openModal={openModal} addNotif={addNotif} deepLinkEventId={deepLinkEventId}/>
           :<UserView events={events} profile={profile} setProfile={p=>{setProfile(p);}} onSlotChange={onSlotChange} openModal={openModal} showToast={showToast} deepLinkEventId={deepLinkEventId}/>
