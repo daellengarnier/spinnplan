@@ -372,7 +372,7 @@ const ALL_SHIFT_TYPES=[
   {key:'Einlass',label:'Einlass',defaultCount:2},
   {key:'EinlassGarten',label:'Einlass Garten',defaultCount:2},
   {key:'Bar',label:'Bar',defaultCount:2},
-  {key:'Sicherheit',label:'Sicherheit',defaultCount:2},
+  {key:'Sicherheit',label:'Awareness & Sicherheit',defaultCount:2},
   {key:'Garderobe',label:'Garderobe',defaultCount:1},
   {key:'Springer',label:'Springer*in',defaultCount:1},
   {key:'BarSpinnerei',label:'Bar Spinnerei',defaultCount:2},
@@ -660,7 +660,7 @@ function SlotMob({val,onSignup,onRemove,currentUser}){
 const HAUSFEST_ROLES=['BarSpinnerei','BarOstblock','CocktailDreiecksbar','BarGarten','SnackbarKleemex'];
 const ROLE_GROUPS=[
   {key:'einlass',label:'Einlass',icon:'🚪',roles:['Einlass','EinlassGarten']},
-  {key:'sicherheit',label:'Sicherheit',icon:'🛡️',roles:['Sicherheit']},
+  {key:'sicherheit',label:'Awareness & Sicherheit',icon:'🛡️',roles:['Sicherheit']},
   {key:'bars',label:'Bars',icon:'🍺',roles:['Bar','BarSpinnerei','BarOstblock','CocktailDreiecksbar','BarGarten']},
   {key:'snacks',label:'Snackbar',icon:'🍕',roles:['SnackbarKleemex']},
   {key:'andere',label:'Weitere',icon:'⚡',roles:['Garderobe','Springer']},
@@ -710,30 +710,44 @@ function HausfestShifts({ev,currentUser,saving,openModal,handleRemove}){
               <span style={{fontFamily:'var(--mono)',fontSize:'0.6rem',color:'var(--muted)',transition:'transform 0.2s',display:'inline-block',transform:openGroup===g.key?'rotate(180deg)':'rotate(0deg)'}}>▼</span>
             </span>
           </button>
-          {openGroup===g.key&&<div style={{borderTop:'1px solid var(--border)',background:'#0d0d0d'}}>
+          {openGroup===g.key&&<div style={{borderTop:'1px solid var(--border)',background:'#0d0d0d',padding:'10px 12px',display:'flex',flexDirection:'column',gap:10}}>
             {g.roles.map(st=>{
               const blks=getRoleBlocks(ev,st.key);
               const cnt=ev.roleCounts[st.key]||st.defaultCount;
+              const roleStart=getRoleStart(ev,st.key);
+              const roleEnd=getRoleEnd(ev,st.key);
+              let roleFilled=0,roleTotal=0;
+              blks.forEach((_,bi)=>{const arr=ev.slots[`${st.key}_${bi}`]||[];for(let si=0;si<cnt;si++){roleTotal++;if(arr[si]&&arr[si].trim())roleFilled++;}});
+              const roleOpen=roleTotal-roleFilled;
               return(
-                <div key={st.key} style={{borderBottom:'1px solid var(--border)'}}>
-                  {g.roles.length>1&&<div style={{fontFamily:'var(--mono)',fontSize:'0.54rem',letterSpacing:'0.1em',textTransform:'uppercase',color:'var(--gold)',padding:'10px 14px 4px',fontWeight:700}}>{getRoleLabel(ev,st)}</div>}
-                  {blks.map((block,bi)=>{
-                    const key=`${st.key}_${bi}`;
-                    const arr=ev.slots[key]||[];
-                    return(
-                      <div key={bi} style={{padding:'0 14px'}}>
-                        <div style={{fontFamily:'var(--mono)',fontSize:'0.5rem',color:'var(--muted)',padding:'8px 0 4px',letterSpacing:'0.08em'}}>{block}</div>
-                        <div style={{display:'flex',gap:6,paddingBottom:8,flexWrap:'wrap'}}>
-                          {Array.from({length:cnt},(_,si)=>{
-                            const val=arr[si]??null;
-                            const isMe=val&&currentUser&&val===currentUser.name;
-                            if(val)return<span key={si} className={`slot-mob ${isMe?'mine':'filled'}`} onClick={isMe||currentUser?.isAdmin?()=>handleRemove(key,si):undefined} style={{minWidth:0,flex:'1 1 auto',justifyContent:'center'}}>{val}{(isMe||currentUser?.isAdmin)&&<span style={{fontSize:'0.6rem',opacity:.6,marginLeft:4}}>✕</span>}</span>;
-                            return<span key={si} className="slot-mob empty" onClick={()=>openModal(ev.id,key,si,getRoleLabel(ev,st),block)} style={{minWidth:0,flex:'1 1 auto',justifyContent:'center'}}>+ Eintragen</span>;
-                          })}
+                <div key={st.key} style={{border:'1px solid var(--border)',background:'var(--surface)',overflow:'hidden'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 12px',borderBottom:'1px solid var(--border)',background:'#111'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontFamily:'var(--cond)',fontSize:'0.95rem',fontWeight:700,textTransform:'uppercase',color:'#fff',letterSpacing:'0.04em'}}>{getRoleLabel(ev,st)}</span>
+                      <span style={{fontFamily:'var(--mono)',fontSize:'0.46rem',color:'var(--muted)'}}>{roleStart}–{roleEnd}</span>
+                    </div>
+                    <span style={{fontFamily:'var(--mono)',fontSize:'0.48rem',padding:'2px 6px',border:'1px solid',borderColor:roleOpen===0?'var(--green-border)':'var(--border2)',color:roleOpen===0?'var(--green)':'var(--muted)'}}>{roleOpen===0?'✓ Voll':`${roleOpen} offen`}</span>
+                  </div>
+                  <div style={{padding:'6px 0'}}>
+                    {blks.map((block,bi)=>{
+                      const key=`${st.key}_${bi}`;
+                      const arr=ev.slots[key]||[];
+                      const allFilled=Array.from({length:cnt}).every((_,si)=>arr[si]&&arr[si].trim());
+                      return(
+                        <div key={bi} style={{display:'flex',alignItems:'center',padding:'4px 12px',gap:8,borderBottom:bi<blks.length-1?'1px solid var(--border)':'none',opacity:allFilled?0.7:1}}>
+                          <span style={{fontFamily:'var(--mono)',fontSize:'0.52rem',color:'var(--muted)',width:82,flexShrink:0,letterSpacing:'0.04em'}}>{block}</span>
+                          <div style={{display:'flex',gap:6,flex:1,flexWrap:'wrap'}}>
+                            {Array.from({length:cnt},(_,si)=>{
+                              const val=arr[si]??null;
+                              const isMe=val&&currentUser&&val===currentUser.name;
+                              if(val)return<span key={si} className={`slot-mob ${isMe?'mine':'filled'}`} onClick={isMe||currentUser?.isAdmin?()=>handleRemove(key,si):undefined} style={{minWidth:0,flex:'1 1 45%',justifyContent:'center',padding:'4px 8px',fontSize:'0.78rem'}}>{val}{(isMe||currentUser?.isAdmin)&&<span style={{fontSize:'0.55rem',opacity:.6,marginLeft:4}}>✕</span>}</span>;
+                              return<span key={si} className="slot-mob empty" onClick={()=>openModal(ev.id,key,si,getRoleLabel(ev,st),block)} style={{minWidth:0,flex:'1 1 45%',justifyContent:'center',padding:'4px 8px',fontSize:'0.78rem'}}>+ Eintragen</span>;
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
